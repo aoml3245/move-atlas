@@ -1,0 +1,29 @@
+[
+  {
+    "source": "free",
+    "repository": "https://github.com/yuhonas/free-exercise-db",
+    "licenseUrl": "https://github.com/yuhonas/free-exercise-db/blob/main/LICENSE.md",
+    "licenseBlob": "fdddb29aa445bf3d6a5d843d6dd77e10a9f99657",
+    "licenseSha256": "6b0382b16279f26ff69014300541967a356a666eb0b91b422f6862f6b7dad17e",
+    "previousCopyMatched": true,
+    "checkedAt": "2026-10-03"
+  },
+  {
+    "source": "dataset",
+    "repository": "https://github.com/hasaneyldrm/exercises-dataset",
+    "licenseUrl": "https://github.com/hasaneyldrm/exercises-dataset/blob/main/LICENSE",
+    "licenseBlob": "5bd07008eea0578bfa41a51a6e29edfd51a5c073",
+    "licenseSha256": "99230e0c2e74c54386e31e7282fc4d939ca14942df542b706fcd9fa71c3187fa",
+    "previousCopyMatched": true,
+    "checkedAt": "2026-10-03"
+  },
+  {
+    "source": "liftosaur",
+    "repository": "https://github.com/astashov/liftosaur",
+    "licenseUrl": "https://github.com/astashov/liftosaur/blob/master/LICENSE",
+    "licenseBlob": "0ad25db4bd1d86c452db3f9602ccdbe172438f52",
+    "licenseSha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
+    "previousCopyMatched": true,
+    "checkedAt": "2026-10-03"
+  }
+]

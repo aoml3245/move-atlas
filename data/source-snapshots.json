@@ -1,0 +1,44 @@
+[
+  {
+    "file": "liftosaur.ts",
+    "retrievedAt": "2026-10-02",
+    "originalSha256": "acd95360aed69e185b31bc363a004671ad891a7cb07443aa959f0c1a780a0797",
+    "publishedSha256": "acd95360aed69e185b31bc363a004671ad891a7cb07443aa959f0c1a780a0797",
+    "changes": "None"
+  },
+  {
+    "file": "exercises-dataset.json",
+    "retrievedAt": "2026-10-02",
+    "originalSha256": "656634224b8977b99a6d765470ee123260d4979715eaa4e7c0b7c8bb0d79f93d",
+    "publishedSha256": "656634224b8977b99a6d765470ee123260d4979715eaa4e7c0b7c8bb0d79f93d",
+    "changes": "None"
+  },
+  {
+    "file": "free-exercise-db.json",
+    "retrievedAt": "2026-10-02",
+    "originalSha256": "5bb747e3fc658f095a60dcbf6d53c96627acdcc6ffb6fffde86f7e26995d40bf",
+    "publishedSha256": "5bb747e3fc658f095a60dcbf6d53c96627acdcc6ffb6fffde86f7e26995d40bf",
+    "changes": "None"
+  },
+  {
+    "file": "liftosaur-images.ts",
+    "retrievedAt": "2026-10-02",
+    "originalSha256": "8ee673279d9fa5d5811b1e383a4f617f0c14821abbf34d95ff72927985e34144",
+    "publishedSha256": "8ee673279d9fa5d5811b1e383a4f617f0c14821abbf34d95ff72927985e34144",
+    "changes": "None"
+  },
+  {
+    "file": "wger-all.json",
+    "retrievedAt": "2026-10-02",
+    "originalSha256": "bda1443e7e948fac538129583ec11dbe4f54f3decd73175f62d26a1a12b8db3b",
+    "publishedSha256": "2d32386bdb869ebf6c0adba1d1d5798f4bc1767cb78bf51185519a667e11a6d9",
+    "changes": "wger image/video metadata excluded"
+  },
+  {
+    "file": "wger-languages.json",
+    "retrievedAt": "2026-10-02",
+    "originalSha256": "b55ad84b1956cda7182dae3fbfe5b52f0bc0c9e7fe4e291d8dccfdbad37adcef",
+    "publishedSha256": "b55ad84b1956cda7182dae3fbfe5b52f0bc0c9e7fe4e291d8dccfdbad37adcef",
+    "changes": "None"
+  }
+]
