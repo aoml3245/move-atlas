@@ -21,9 +21,9 @@ export class TrainingStore {
  switchAccount(uid){this.namespace=uid||'guest';this.load();}
  all(kind){return Object.values(this.entities).filter(e=>e.kind===kind&&!e.deleted).map(e=>e.value);}
  get(kind,id){const e=this.entities[`${kind}_${id}`];return e&&!e.deleted?e.value:null;}
- save(kind,id,value){const key=`${kind}_${id}`,now=Math.max(Date.now(),(this.entities[key]?.updatedAt||0)+1);const entity={id:key,kind,value:structuredClone(value),updatedAt:now};this.entities[key]=entity;this.persist();this.notify();this.onWrite?.(entity);return value;}
+ save(kind,id,value){const key=`${kind}_${id}`,now=Math.max(Date.now(),(this.entities[key]?.updatedAt||0)+1);const entity={id:key,kind,value:structuredClone(value),updatedAt:now};this.entities[key]=entity;const durable=this.persist();this.notify();this.onWrite?.(entity);if(!durable)throw Error('기기 저장 공간이 부족해요. 현재 기록은 화면에 남아 있으니 설정에서 백업을 저장해 주세요.');return value;}
  receive(entity){try{validateEntity(entity);}catch{this.storageError='불러온 일부 기록의 형식을 확인해 주세요.';return;}const merged=mergeEntity(this.entities[entity.id],entity);if(JSON.stringify(this.entities[entity.id])===JSON.stringify(merged))return;this.entities[entity.id]=merged;this.persist();this.notify();if(JSON.stringify(merged)!==JSON.stringify(entity))this.onWrite?.(merged);}
- persist(){try{this.storage.setItem(this.key,JSON.stringify({version:1,entities:this.entities}));this.storageError=null;}catch{this.storageError='기기 저장 공간이 부족해요. 기록을 백업해 주세요.';}}
+ persist(){try{this.storage.setItem(this.key,JSON.stringify({version:1,entities:this.entities}));this.storageError=null;return true;}catch{this.storageError='기기 저장 공간이 부족해요. 기록을 백업해 주세요.';return false;}}
  notify(){for(const fn of this.listeners)fn();}
  subscribe(fn){this.listeners.add(fn);return()=>this.listeners.delete(fn);}
  backup(){return {format:'move-atlas-training-backup',version:1,exportedAt:new Date().toISOString(),entities:structuredClone(this.entities)};}
@@ -31,7 +31,7 @@ export class TrainingStore {
   if(backup?.format!=='move-atlas-training-backup'||backup.version!==1||!backup.entities||Array.isArray(backup.entities)||Object.keys(backup.entities).length>50000)throw Error('Move Atlas 기록 백업 파일을 골라 주세요.');
   const entries=Object.entries(backup.entities);
   for(const [id,e]of entries)validateEntity(e,id);
-  for(const [id,e]of entries){this.entities[id]=mergeEntity(this.entities[id],e);this.onWrite?.(this.entities[id]);}this.persist();this.notify();return entries.length;
+  for(const [id,e]of entries){this.entities[id]=mergeEntity(this.entities[id],e);this.onWrite?.(this.entities[id]);}const durable=this.persist();this.notify();if(!durable)throw Error('기기 저장 공간이 부족해 가져온 기록을 보관하지 못했어요. 원본 백업 파일을 보관해 주세요.');return entries.length;
  }
 }
 import {validateProfile,BASIS,PROGRAMS,SPLITS} from './training.mjs';

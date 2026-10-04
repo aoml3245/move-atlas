@@ -87,3 +87,9 @@ test('malformed backup imports are rejected before any records are changed',()=>
  assert.throws(()=>s.importBackup({format:'move-atlas-training-backup',version:1,entities:{bad:{id:'wrong',kind:'max',updatedAt:1,value:{}}}}));
  assert.deepEqual(s.backup().entities,before.entities);
 });
+test('storage failure is reported and keeps the unsaved record available for backup',()=>{
+ const s=new TrainingStore({getItem:()=>null,setItem:()=>{throw Error('quota');}});
+ assert.throws(()=>s.save('max','lift',{value:50}),/저장 공간/);
+ assert.equal(s.backup().entities.max_lift.value.value,50);
+ assert.match(s.storageError,/백업/);
+});
