@@ -126,7 +126,7 @@ function renderResults(){
  }
  const capacity=catalogCapacity(window.innerWidth,window.visualViewport?.height||window.innerHeight),page=pageSlice(results,catalogPage,capacity.size);catalogPage=page.page;
  $('#exercise-list').innerHTML=`<div class="exercise-grid" style="--card-columns:${capacity.columns};--card-rows:${capacity.rows}">${page.items.map(x=>row(x)).join('')}</div>`;
- $('#list-footer').innerHTML=`<div class="screen-pager"><button class="screen-button" data-action="catalog-prev" ${page.page===0?'disabled':''}>← 이전</button><label class="catalog-page-jump">페이지 <input id="catalog-page" aria-label="도감 페이지" type="number" min="1" max="${page.count}" value="${page.page+1}"> / ${fmt(page.count)}</label><span class="screen-page-count">${fmt(page.start+1)}–${fmt(page.start+page.items.length)} / ${fmt(results.length)}</span><button class="screen-button" data-action="catalog-next" ${page.page===page.count-1?'disabled':''}>다음 →</button></div>`;
+ $('#list-footer').innerHTML=`<div class="screen-pager"><button class="screen-button" data-action="catalog-prev" ${page.page===0?'disabled':''}>← 이전</button><div class="catalog-page-jump"><label for="catalog-page">페이지</label> <input id="catalog-page" aria-label="도감 페이지" type="number" min="1" max="${page.count}" value="${page.page+1}" required> / ${fmt(page.count)} <button class="screen-button" data-action="catalog-jump">이동</button></div><span class="screen-page-count">${fmt(page.start+1)}–${fmt(page.start+page.items.length)} / ${fmt(results.length)}</span><button class="screen-button" data-action="catalog-next" ${page.page===page.count-1?'disabled':''}>다음 →</button></div>`;
 }
 function row(x){
  const fav=state.favorites.includes(x.id),illustration=illustrations.assets[x.id];
@@ -181,15 +181,15 @@ function toggleFavorite(id){
 }
 function reset(){state={...state,region:'all',muscles:[],availableOnly:false,includeSecondary:false,withImages:false,activity:'all',query:''};$('#search').value='';persist();renderFilters();updateResults();}
 function closeMobile(){$('#filters-dialog')?.close();}
+function jumpCatalog(){const input=$('#catalog-page');if(!input?.reportValidity())return;catalogPage=input.valueAsNumber-1;renderResults();}
 function bind(){
  $('#search').addEventListener('input',e=>{state.query=e.target.value;updateResults();});
- document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#search').focus();}if(e.key==='Escape')closeMobile();if(['ArrowLeft','ArrowRight'].includes(e.key)&&!document.body.classList.contains('training-open')&&!document.querySelector('dialog[open]')&&!e.target.closest('input,select,textarea')){e.preventDefault();catalogPage+=e.key==='ArrowRight'?1:-1;renderResults();}});
+ document.addEventListener('keydown',e=>{if(e.target.id==='catalog-page'&&e.key==='Enter'){e.preventDefault();jumpCatalog();return;}if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#search').focus();}if(e.key==='Escape')closeMobile();if(['ArrowLeft','ArrowRight'].includes(e.key)&&!document.body.classList.contains('training-open')&&!document.querySelector('dialog[open]')&&!e.target.closest('input,select,textarea')){e.preventDefault();catalogPage+=e.key==='ArrowRight'?1:-1;renderResults();}});
  document.addEventListener('change',e=>{
   if(e.target.dataset.tool){const id=e.target.dataset.tool;state.tools=e.target.checked?unique([...state.tools,id]):state.tools.filter(x=>x!==id);state.availableOnly=true;persist();renderFilters();updateResults();}
   if(e.target.id==='include-secondary'){state.includeSecondary=e.target.checked;updateResults();}
   if(e.target.id==='with-images'){state.withImages=e.target.checked;updateResults();}
   if(e.target.id==='activity'){state.activity=e.target.value;updateResults();}
-  if(e.target.id==='catalog-page'){catalogPage=Number(e.target.value)-1;renderResults();}
   if(e.target.id==='sort'){state.sort=e.target.value;updateResults();}
  });
  document.addEventListener('click',e=>{
@@ -207,6 +207,7 @@ function bind(){
   if(action==='images-mode'){state.withImages=!state.withImages;renderFilters();updateResults();}
   if(action==='tools-mode'){state.availableOnly=!state.availableOnly;persist();renderFilters();updateResults();}
   if(action==='expand-tools'){expandedTools=!expandedTools;renderFilters();}
+  if(action==='catalog-jump')jumpCatalog();
   if(action==='catalog-prev'||action==='catalog-next'){catalogPage+=action==='catalog-next'?1:-1;renderResults();}
   if(action==='favorites'||action==='catalog'){state.onlyFavorites=action==='favorites';updateResults();}
   if(action==='about')showAbout();
