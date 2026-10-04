@@ -27,6 +27,8 @@ let illustrations={version:1,approvedCount:0,assets:{}};
 let illustrationProgress=null;
 let training;
 const KEY='move-atlas.preferences:v1';
+function resetCatalogPreferences(){state={...base,tools:[],muscles:[],favorites:[],labels:{equipment:data.equipment,muscles:data.muscles}};$('#search').value='';renderFilters();updateResults();}
+window.addEventListener('storage',event=>{if(event.key===KEY&&event.newValue===null&&data)resetCatalogPreferences();});
 const base={region:'all',muscles:[],tools:[],availableOnly:false,includeSecondary:false,activity:'all',onlyFavorites:false,withImages:false,favorites:[],query:'',sort:'classic'};
 let state={...base};
 try {const p=JSON.parse(localStorage.getItem(KEY)||'null');if(p?.version===1) state={...state,tools:Array.isArray(p.tools)?p.tools:[],availableOnly:!!p.availableOnly,favorites:Array.isArray(p.favorites)?p.favorites:[]};} catch {}
@@ -37,8 +39,8 @@ const commonTools=['dumbbell','barbell','bench','cable','machine','band','kettle
 
 async function start(){
  try {
-  const response=await fetch(assetUrl('/catalog.json'));if(!response.ok)throw Error('데이터를 불러오지 못했습니다.');data=await response.json();
-  try {const r=await fetch(assetUrl('/illustrations/manifest.json'));if(r.ok)illustrations=await r.json();}catch{}
+  const response=await fetch(assetUrl('/catalog.json'),{cache:'no-cache'});if(!response.ok)throw Error('데이터를 불러오지 못했습니다.');data=await response.json();
+  try {const r=await fetch(assetUrl('/illustrations/manifest.json'),{cache:'no-cache'});if(r.ok)illustrations=await r.json();}catch{}
   try {const r=await fetch(assetUrl('/illustrations/progress.json'));if(r.ok)illustrationProgress=await r.json();}catch{}
   data.exercises.forEach(x=>{x.hasIllustration=!!illustrations.assets[x.id];});
   state.tools=state.tools.filter(id=>data.equipment[id]&&id!=='unknown');
@@ -56,7 +58,7 @@ async function start(){
      <footer class="main-footer"><span>MOVE ATLAS <span class="footer-dot">·</span> 작은 움직임부터, 꾸준하게.</span><div class="footer-links"><a href="https://github.com/aoml3245/move-atlas" target="_blank" rel="noopener noreferrer">소스 코드</a><a href="./credits.html">출처·라이선스</a><button data-action="about">통합 기준 ${icon('arrow')}</button></div></footer>
     </main></div><div class="mobile-backdrop" data-action="mobile-close"></div>`;
   bind();renderFilters();updateResults();renderIllustrationProgress();
-  training=initTraining({catalog:data,illustrations,getPreferences:()=>({tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}),setPreferences:p=>{state.tools=(p.tools||[]).filter(id=>data.equipment[id]&&id!=='unknown');state.favorites=(p.favorites||[]).filter(id=>data.exercises.some(x=>x.id===id));state.availableOnly=!!p.availableOnly;try{localStorage.setItem(KEY,JSON.stringify({version:1,tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}));}catch{}renderFilters();updateResults();},showDetail});
+  training=initTraining({catalog:data,illustrations,getPreferences:()=>({tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}),setPreferences:p=>{state.tools=(p.tools||[]).filter(id=>data.equipment[id]&&id!=='unknown');state.favorites=(p.favorites||[]).filter(id=>data.exercises.some(x=>x.id===id));state.availableOnly=!!p.availableOnly;try{localStorage.setItem(KEY,JSON.stringify({version:1,tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}));}catch{}renderFilters();updateResults();},resetPreferences:resetCatalogPreferences,showDetail});
   if(illustrationProgress?.scope==='all-exercises')setInterval(refreshIllustrations,60000);
  } catch (error){$('#app').innerHTML=`<div class="initial-loading"><h1>운동 목록을 불러오지 못했어요.</h1><p>${esc(error.message)}</p><button id="retry" class="primary-button">다시 불러오기</button></div>`;$('#retry')?.addEventListener('click',()=>location.reload());}
 }

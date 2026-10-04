@@ -33,11 +33,13 @@ export class TrainingStore {
  subscribe(fn){this.listeners.add(fn);return()=>this.listeners.delete(fn);}
  backup(){return {format:'move-atlas-training-backup',version:1,exportedAt:new Date().toISOString(),entities:structuredClone(this.entities)};}
  importBackup(backup){
-  if(backup?.format!=='move-atlas-training-backup'||backup.version!==1||!backup.entities||Array.isArray(backup.entities)||Object.keys(backup.entities).length>50000)throw Error('Move Atlas 기록 백업 파일을 골라 주세요.');
-  const entries=Object.entries(backup.entities);
-  for(const [id,e]of entries)validateEntity(e,id);
+  const entries=validateBackup(backup);
   for(const [id,e]of entries){this.entities[id]=mergeEntity(this.entities[id],e);this.onWrite?.(this.entities[id]);}const durable=this.persist();this.notify();if(!durable)throw Error('기기 저장 공간이 부족해 가져온 기록을 보관하지 못했어요. 원본 백업 파일을 보관해 주세요.');return entries.length;
  }
+}
+export function validateBackup(backup){
+ if(backup?.format!=='move-atlas-training-backup'||backup.version!==1||!backup.entities||Array.isArray(backup.entities)||typeof backup.entities!=='object'||Object.keys(backup.entities).length>50000)throw Error('Move Atlas 기록 백업 파일을 골라 주세요.');
+ const entries=Object.entries(backup.entities);for(const [id,e]of entries)validateEntity(e,id);return entries;
 }
 import {validateProfile,BASIS,PROGRAMS,SPLITS} from './training.mjs';
 function validateEntity(e,id=e?.id){
