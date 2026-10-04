@@ -75,7 +75,7 @@ export class CardScreens {
   for(const [i,page]of this.pages.entries()){const option=el('option','',`${i+1}. ${page.dataset.pageTitle}`);option.value=i;select.append(option);}
   const label=el('span','screen-page-count');label.setAttribute('role','status');label.setAttribute('aria-live','polite');footer.append(previous,select,label,next);this.controls={previous,next,select,label};
   if(this.tail)footer.append(this.tail);
-  if(this.form){this.form.replaceChildren(stage,footer);this.form.classList.add('screen-form');deck.append(this.form);}else deck.append(stage,footer);
+  if(this.form){const retained=[...this.form.querySelectorAll(':scope > input[type=hidden]')];this.form.replaceChildren(...retained,stage,footer);this.form.classList.add('screen-form');deck.append(this.form);}else deck.append(stage,footer);
   const frame=el('div',`screen-frame ${this.dock?'with-dock':''}`);frame.append(deck);if(this.dock)frame.append(this.dock);
   this.root.replaceChildren(heading,this.toolbar,frame);this.dock=null;
   const position=view==='today'&&context.session?sessionPosition(context.session):null,fallback=position?(position.page.startsWith('lift-')?`lift-${context.session.exercises[Number(position.page.split('-')[1])].exerciseId}`:position.page):this.pages[0].dataset.pageKey;
@@ -149,12 +149,12 @@ export class CardScreens {
  max(){
   const search=this.root.querySelector('.training-search');if(search)this.toolbar.append(search);
   const form=this.root.querySelector('#max-form');
-  if(form){this.form=form;this.key=`max:${form.querySelector('[name=exerciseId]').value}`;const top=form.querySelector('.card-title');this.toolbar.append(top);const hidden=form.querySelector('[name=exerciseId]');const fields=children(form.querySelector('.form-grid'));
+  if(form){this.form=form;this.key=`max:${form.querySelector('[name=exerciseId]').value}`;const top=form.querySelector('.card-title');this.toolbar.append(top);const picker=form.querySelector('#max-equipment-picker');if(picker)this.toolbar.append(picker);const hidden=form.querySelector('[name=exerciseId]');const fields=children(form.querySelector('.form-grid'));
    for(let i=0;i<fields.length;i+=4){const grid=el('div','form-grid screen-max-fields');grid.append(...fields.slice(i,i+4));if(i===0)grid.prepend(hidden);this.pages.push(this.makePage(`fields-${i}`,i===0?'중량과 반복':'장비와 측정일',grid));}
    const note=form.querySelector('.training-hint'),error=form.querySelector('.form-error');if(note)this.pages.at(-1).append(note);if(error)this.pages.at(-1).append(error);this.tail=form.querySelector('[type=submit]');
   }else{
    const intro=this.root.querySelector('.training-card'),help=button('중량 기록 안내','max-help');if(intro){help.onclick=()=>showScreenInfo('최대 중량과 가벼운 테스트',children(intro));this.toolbar.append(help);}
-   for(const [i,row]of [...this.root.querySelectorAll('.max-row')].entries()){const id=row.querySelector('[data-id]').dataset.id,card=el('article','training-card screen-max-card'),art=el('div','screen-art');art.append(this.image(id));card.append(art,row);this.pages.push(this.makePage(`max-${id}`,this.context.byId.get(id)?.nameKo||'운동 중량',card));}
+   for(const [i,row]of [...this.root.querySelectorAll('.max-row')].entries()){const id=row.querySelector('[data-id]').dataset.id,card=el('article','training-card screen-max-card'),art=el('div','screen-art');art.append(this.image(id));card.append(art,row);this.pages.push(this.makePage(`max-${id}`,row.querySelector('strong')?.textContent||'운동 중량',card));}
    if(!this.pages.length){const empty=el('div','training-card screen-message');empty.append(el('h2','','운동 중량을 입력해 보세요.'),el('p','','위에서 운동을 검색하거나 먼저 내 루틴을 만들어요.'));this.pages.push(this.makePage('empty','중량 찾기',empty));}
   }
  }
@@ -164,7 +164,7 @@ export class CardScreens {
    const summary=record.querySelector('summary'),note=children(record).filter(n=>n.tagName==='P'&&!n.matches('.training-hint'));
    for(const [ei,exercise]of [...record.querySelectorAll('.history-exercise')].entries()){
     const values=exercise.querySelector('span').textContent.split(' / '),id=exercise.dataset.exerciseId;
-    for(let offset=0;offset<values.length;offset+=6){const card=el('article','training-card screen-history-card'),art=el('div','screen-art');art.append(this.image(id));const text=el('div','screen-history-copy');text.append(summary.cloneNode(true),el('h2','',exercise.querySelector('strong').textContent));
+    for(let offset=0;offset<values.length;offset+=6){const card=el('article','training-card screen-history-card'),art=el('div','screen-art');art.append(this.image(id));const text=el('div','screen-history-copy');text.append(summary.cloneNode(true),el('h2','',exercise.querySelector('strong').textContent));if(exercise.dataset.basisLabel)text.append(el('p','training-hint',exercise.dataset.basisLabel));
      const list=el('div','history-set-list');for(const [n,value]of values.slice(offset,offset+6).entries())list.append(el('p','',`${offset+n+1}. ${value}`));text.append(list);
      if(note.length){const more=button('운동 메모','history-note');more.onclick=()=>showScreenInfo('이날의 운동 메모',note);text.append(more);}card.append(art,text);this.pages.push(this.makePage(`history-${si}-${ei}-${offset}`,`${summary.querySelector('small')?.textContent.split(' · ')[0]} · ${exercise.querySelector('strong').textContent}`,card));
     }

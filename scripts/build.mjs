@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {buildRelease} from './build-release.mjs';
 const root = resolve(import.meta.dirname,'..');
-for (const file of ['app.js','filters.mjs','urls.mjs','training.mjs','training-ui.mjs','training-store.mjs','app-lifecycle.mjs','personal-data.mjs','screen-ui.mjs','screen-state.mjs']) {
+const grouping=spawnSync('python3',[resolve(root,'scripts/exercise-groups.py')],{stdio:'inherit'});
+if(grouping.status!==0)process.exit(grouping.status||1);
+for (const file of ['app.js','filters.mjs','urls.mjs','training.mjs','training-ui.mjs','training-store.mjs','app-lifecycle.mjs','personal-data.mjs','screen-ui.mjs','screen-state.mjs','exercise-groups.mjs']) {
   const check = spawnSync(process.execPath,['--check',resolve(root,'public',file)],{stdio:'inherit'});
   if (check.status !== 0) process.exit(check.status || 1);
 }

@@ -1,13 +1,13 @@
 {
   "name": "move-atlas",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "An attributed, searchable exercise catalog with equipment availability filters.",
   "scripts": {
     "dev": "npm run cloud:build && node scripts/serve.mjs",
     "preview": "node scripts/serve.mjs --dist",
-    "data": "python3 scripts/catalog.py",
+    "data": "python3 scripts/catalog.py && python3 scripts/exercise-groups.py",
     "illustrations:prepare": "python3 scripts/prepare-illustrations.py",
     "illustrations:sync": "node scripts/sync-illustrations.mjs",
     "illustrations:progress": "node scripts/illustration-progress.mjs",

@@ -1,8 +1,9 @@
-import { matchesExercise, sortExercises } from './filters.mjs';
 import { assetUrl } from './urls.mjs';
 import { initTraining } from './training-ui.mjs';
 import {mountFilterCards,mountReadingCards} from './screen-ui.mjs';
 import {catalogCapacity,pageSlice} from './screen-state.mjs';
+import {exerciseCandidate} from './training.mjs';
+import {createExerciseIndex,matchingGroups,variantLabel,groupExerciseName} from './exercise-groups.mjs';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -24,7 +25,7 @@ const iconPaths = {
  steps:'<path d="M3 20h6v-6h6V8h6M4 4h3m3 0h3"/>',
 };
 function icon(name, cls='') {return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.dumbbell}</svg>`;}
-let data, results = [], catalogPage = 0, openExercise, expandedTools = false;
+let data, exerciseIndex, results = [], catalogPage = 0, openExercise, expandedTools = false;
 let illustrations={version:1,approvedCount:0,assets:{}};
 let illustrationProgress=null;
 let training;
@@ -45,6 +46,9 @@ async function start(){
   try {const r=await fetch(assetUrl('/illustrations/manifest.json'),{cache:'no-cache'});if(r.ok)illustrations=await r.json();}catch{}
   try {const r=await fetch(assetUrl('/illustrations/progress.json'));if(r.ok)illustrationProgress=await r.json();}catch{}
   data.exercises.forEach(x=>{x.hasIllustration=!!illustrations.assets[x.id];});
+  const grouped=await fetch(assetUrl('/exercise-groups.json'),{cache:'no-cache'});if(!grouped.ok)throw Error('통합 운동 목록을 불러오지 못했습니다.');
+  exerciseIndex=createExerciseIndex(data,await grouped.json());
+  data.exercises.forEach(x=>{x.nameKo=groupExerciseName(exerciseIndex,x.id,data.equipment);});
   state.tools=state.tools.filter(id=>data.equipment[id]&&id!=='unknown');
   state.favorites=state.favorites.filter(id=>data.exercises.some(x=>x.id===id));
   state.labels={equipment:data.equipment,muscles:data.muscles};
@@ -54,14 +58,14 @@ async function start(){
     <button class="source-button" data-action="about" aria-label="데이터 출처">${icon('info')} <span>데이터 출처</span></button></header>
    <div class="workspace"><aside class="sidebar" id="filters" aria-label="운동 필터"></aside>
     <main><section class="intro"><div><div class="eyebrow"><span class="blue-dot"></span> YOUR MOVEMENT LIBRARY</div><h1>내 도구로 할 수 있는<br><span>운동을 찾아보세요.</span></h1><p>운동 부위와 준비된 도구를 골라 나에게 맞는 움직임을 탐색하세요.</p></div>
-     <div class="catalog-stat"><span class="stat-decoration">${icon('dumbbell')}</span><small>하나로 모은 운동</small><strong>${fmt(data.meta.catalogTotal)}<span>개</span></strong><div><span class="source-dots"><i>F</i><i>E</i><i>W</i><i>L</i></span><span>4개의 공개 목록 통합</span></div></div></section>
+     <div class="catalog-stat"><span class="stat-decoration">${icon('dumbbell')}</span><small>하나로 모은 운동</small><strong>${fmt(exerciseIndex.groups.length)}<span>개</span></strong><div><span class="source-dots"><i>F</i><i>E</i><i>W</i><i>L</i></span><span>4개의 공개 목록 통합</span></div></div></section>
      <div id="illustration-progress"></div><div class="search-toolbar"><div class="search-wrap">${icon('search')}<input id="search" type="search" placeholder="운동 이름, 부위, 도구로 검색" aria-label="운동 검색" autocomplete="off"><kbd>⌘ K</kbd></div><button class="mobile-filters" data-action="mobile-filters">${icon('sliders')} 필터</button></div>
      <div id="active-filters" class="active-filters"></div><div id="result-header"></div><div id="exercise-list" aria-label="운동 목록"></div><div id="list-footer"></div>
      <footer class="main-footer"><span>MOVE ATLAS <span class="footer-dot">·</span> 작은 움직임부터, 꾸준하게.</span><div class="footer-links"><a href="https://github.com/aoml3245/move-atlas" target="_blank" rel="noopener noreferrer">소스 코드</a><a href="./credits.html">출처·라이선스</a><button data-action="about">통합 기준 ${icon('arrow')}</button></div></footer>
     </main></div><div class="mobile-backdrop" data-action="mobile-close"></div>`;
   const filterDialog=document.createElement('dialog');filterDialog.id='filters-dialog';filterDialog.className='screen-dialog filters-dialog';filterDialog.setAttribute('aria-label','운동 필터');filterDialog.append($('#filters'));document.body.append(filterDialog);
   bind();renderFilters();updateResults();renderIllustrationProgress();
-  training=initTraining({catalog:data,illustrations,getPreferences:()=>({tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}),setPreferences:p=>{state.tools=(p.tools||[]).filter(id=>data.equipment[id]&&id!=='unknown');state.favorites=(p.favorites||[]).filter(id=>data.exercises.some(x=>x.id===id));state.availableOnly=!!p.availableOnly;try{localStorage.setItem(KEY,JSON.stringify({version:1,tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}));}catch{}renderFilters();updateResults();},resetPreferences:resetCatalogPreferences,showDetail});
+  training=initTraining({catalog:data,exerciseIndex,illustrations,getPreferences:()=>({tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}),setPreferences:p=>{state.tools=(p.tools||[]).filter(id=>data.equipment[id]&&id!=='unknown');state.favorites=(p.favorites||[]).filter(id=>data.exercises.some(x=>x.id===id));state.availableOnly=!!p.availableOnly;try{localStorage.setItem(KEY,JSON.stringify({version:1,tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}));}catch{}renderFilters();updateResults();},resetPreferences:resetCatalogPreferences,showDetail});
   if(illustrationProgress?.scope==='all-exercises')setInterval(refreshIllustrations,60000);
  } catch (error){$('#app').innerHTML=`<div class="initial-loading"><h1>운동 목록을 불러오지 못했어요.</h1><p>${esc(error.message)}</p><button id="retry" class="primary-button">다시 불러오기</button></div>`;$('#retry')?.addEventListener('click',()=>location.reload());}
 }
@@ -80,7 +84,8 @@ async function refreshIllustrations(){
   if(mr.ok){
    const next=await mr.json();
    if(next.revision!==illustrations.revision||next.approvedCount!==illustrations.approvedCount){
-    if(next.catalogRevision!==illustrations.catalogRevision){const cr=await fetch(assetUrl('/catalog.json'),{cache:'no-store'});if(cr.ok){data=await cr.json();state.labels={equipment:data.equipment,muscles:data.muscles};}}
+    // Catalog, groups and record indexes must stay on the same release.
+    if(next.catalogRevision!==illustrations.catalogRevision)return;
     illustrations=next;data.exercises.forEach(x=>{x.hasIllustration=!!next.assets[x.id];});
     renderFilters();updateResults(false);
     if($('#detail-dialog').open&&!$('#image-dialog').open&&openExercise){const top=$('#detail-dialog').scrollTop;showDetail(openExercise.id);$('#detail-dialog').scrollTop=top;}
@@ -107,9 +112,9 @@ function renderFilters(){
 
 function updateResults(reset=true){
  if(reset)catalogPage=0;
- results=sortExercises(data.exercises.filter(x=>matchesExercise(x,state)),state.sort);
+ results=matchingGroups(exerciseIndex,state);
  renderResults();renderActiveFilters();
- $('#favorite-count').textContent=state.favorites.length;
+ $('#favorite-count').textContent=exerciseIndex.groups.filter(g=>g.variants.some(v=>v.exerciseIds.some(id=>state.favorites.includes(id)))).length;
  if(!document.body.classList.contains('training-open'))document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.dataset.action===(state.onlyFavorites?'favorites':'catalog')));
 }
 function renderActiveFilters(){
@@ -119,7 +124,7 @@ function renderActiveFilters(){
 }
 function renderResults(){
  const title=state.onlyFavorites?'즐겨찾는 운동':'운동 목록';
- $('#result-header').innerHTML=`<div class="result-heading"><h2>${title} <span role="status" aria-live="polite">${fmt(results.length)}</span></h2><div><button class="images-toggle ${state.withImages?'active':''}" data-action="images-mode" aria-pressed="${state.withImages}">동작 이미지 <b>${fmt(illustrations.approvedCount)}</b></button><span class="result-note">${state.availableOnly?'내 도구로 가능한 운동':'동작·장비별로 정리된 목록'}</span><select id="sort" aria-label="목록 정렬"><option value="classic" ${state.sort==='classic'?'selected':''}>대표 운동 먼저</option><option value="korean" ${state.sort==='korean'?'selected':''}>가나다순</option><option value="english" ${state.sort==='english'?'selected':''}>영문 이름순</option><option value="sources" ${state.sort==='sources'?'selected':''}>출처가 많은 순</option></select></div></div>`;
+ $('#result-header').innerHTML=`<div class="result-heading"><h2>${title} <span role="status" aria-live="polite">${fmt(results.length)}</span></h2><div><button class="images-toggle ${state.withImages?'active':''}" data-action="images-mode" aria-pressed="${state.withImages}">동작 이미지 <b>${fmt(illustrations.approvedCount)}</b></button><span class="result-note">${state.availableOnly?'내 도구로 가능한 운동':'대표 운동 · 장비는 상세에서 선택'}</span><select id="sort" aria-label="목록 정렬"><option value="classic" ${state.sort==='classic'?'selected':''}>대표 운동 먼저</option><option value="korean" ${state.sort==='korean'?'selected':''}>가나다순</option><option value="english" ${state.sort==='english'?'selected':''}>영문 이름순</option><option value="sources" ${state.sort==='sources'?'selected':''}>출처가 많은 순</option></select></div></div>`;
  if(!results.length){
   const noFavorites=state.onlyFavorites&&!state.favorites.length;
   $('#exercise-list').innerHTML=`<div class="empty-state"><div>${icon(state.onlyFavorites?'star':'search')}</div><h3>${noFavorites?'아직 즐겨찾는 운동이 없어요.':state.onlyFavorites?'조건에 맞는 즐겨찾기가 없어요.':'조건에 맞는 운동이 없어요.'}</h3><p>${noFavorites?'운동 옆의 별을 눌러 나만의 목록을 만들어보세요.':'부위나 도구 조건을 조금 넓혀보세요.'}</p><button class="primary-button" data-action="${noFavorites?'catalog':'reset'}">${noFavorites?'운동 둘러보기':'필터 초기화'}</button></div>`;$('#list-footer').innerHTML='';return;
@@ -129,9 +134,10 @@ function renderResults(){
  $('#list-footer').innerHTML=`<div class="screen-pager"><button class="screen-button" data-action="catalog-prev" ${page.page===0?'disabled':''}>← 이전</button><div class="catalog-page-jump"><label for="catalog-page">페이지</label> <input id="catalog-page" aria-label="도감 페이지" type="number" min="1" max="${page.count}" value="${page.page+1}" required> / ${fmt(page.count)} <button class="screen-button" data-action="catalog-jump">이동</button></div><span class="screen-page-count">${fmt(page.start+1)}–${fmt(page.start+page.items.length)} / ${fmt(results.length)}</span><button class="screen-button" data-action="catalog-next" ${page.page===page.count-1?'disabled':''}>다음 →</button></div>`;
 }
 function row(x){
- const fav=state.favorites.includes(x.id),illustration=illustrations.assets[x.id];
+ const variant=x.representative, fav=x.variants.some(v=>v.exerciseIds.some(id=>state.favorites.includes(id))),illustration=illustrations.assets[variant.id];
  const image=illustration?`<img src="${esc(assetUrl(illustration.url))}" alt="${esc(x.nameKo)} 동작 자세" loading="lazy" decoding="async">`:icon('dumbbell');
- return `<article class="exercise-card"><button class="exercise-card-open" data-exercise="${x.id}" aria-label="${esc(x.nameKo)} 상세 정보"><span class="exercise-card-art">${image}</span><span class="exercise-card-copy"><strong>${esc(x.nameKo)}</strong><small>${esc(x.name)}</small><span>${esc(x.primaryMuscles.map(m=>data.muscles[m]).join(' · ')||'부위 확인 필요')}</span><small>${esc(x.equipment.map(t=>data.equipment[t]).join(' · ')||'맨몸')}</small></span></button><button class="favorite ${fav?'saved':''}" data-favorite="${x.id}" aria-label="${esc(x.nameKo)} 즐겨찾기 ${fav?'해제':'추가'}" aria-pressed="${fav}">${icon('star')}</button></article>`;
+ const tools=unique(x.matches.flatMap(v=>v.exercise.equipment.length?v.exercise.equipment.map(t=>data.equipment[t]):['맨몸']));
+ return `<article class="exercise-card"><button class="exercise-card-open" data-exercise="${variant.id}" aria-label="${esc(x.nameKo)} 상세 정보"><span class="exercise-card-art">${image}</span><span class="exercise-card-copy"><strong>${esc(x.nameKo)}</strong><small>${esc(x.name)}</small><span>${esc(variant.primaryMuscles.map(m=>data.muscles[m]).join(' · ')||'부위 확인 필요')}</span><small>${x.matches.length>1?`${x.matches.length}가지 장비·방식 · `:''}${esc(tools.slice(0,4).join(' · ')||'맨몸')}${tools.length>4?' 외':''}</small></span></button><button class="favorite ${fav?'saved':''}" data-favorite="${variant.id}" aria-label="${esc(x.nameKo)} 즐겨찾기 ${fav?'해제':'추가'}" aria-pressed="${fav}">${icon('star')}</button></article>`;
 }
 
 function illustrationExample(asset){
@@ -158,25 +164,32 @@ function bodyMap(x){
  return `<svg class="body-map" viewBox="0 0 240 218" aria-label="주요 운동 부위 개요: ${esc(x.primaryMuscles.map(m=>data.muscles[m]).join(', '))}" role="img"><g transform="translate(61 0)">${figure(false)}</g><g transform="translate(179 0)">${figure(true)}</g><g fill="#8e9bb1" font-size="10" text-anchor="middle"><text x="61" y="214">앞</text><text x="179" y="214">뒤</text></g></svg>`;
 }
 function showDetail(id){
- const x=data.exercises.find(e=>e.id===id);if(!x)return;openExercise=x;
+ const link=exerciseIndex.byExercise.get(id);if(!link)return;const x=link.variant.exercise,group=link.group,saved=group.variants.some(v=>v.exerciseIds.some(id=>state.favorites.includes(id)));openExercise=x;
+ const members=link.variant.exerciseIds.map(id=>exerciseIndex.byId.get(id)),sourceRows=[...new Map(members.flatMap(e=>e.sources).map(s=>[`${s.source}:${s.sourceId}`,s])).values()],aliases=unique(members.flatMap(e=>[e.name,...e.aliases]));
  const d=$('#detail-dialog');
- d.innerHTML=`<div class="detail-top"><span>운동 자세히 보기</span><button data-action="close-detail" aria-label="상세 닫기">${icon('close')}</button></div><div class="detail-content"><div class="detail-eyebrow">${esc(activities[x.activity]||'근력 운동')} <span>·</span> ${esc(x.movementLabel)}</div><h2>${esc(x.nameKo)}</h2><p class="detail-english">${esc(x.name)}</p><button class="detail-favorite ${state.favorites.includes(x.id)?'saved':''}" data-favorite="${x.id}">${icon('star')} ${state.favorites.includes(x.id)?'즐겨찾기에 저장됨':'즐겨찾기에 저장'}</button>
-  ${['strength','powerlifting'].includes(x.activity)&&x.equipment.length?`<button class="detail-favorite" data-train="max-edit" data-id="${x.id}">${icon('target')} 내 최대 중량 입력</button>`:''}
+ d.innerHTML=`<div class="detail-top"><span>운동 자세히 보기</span><button data-action="close-detail" aria-label="상세 닫기">${icon('close')}</button></div><div class="detail-content"><div class="detail-eyebrow">${esc(activities[x.activity]||'근력 운동')} <span>·</span> ${esc(x.movementLabel)}</div><h2>${esc(x.nameKo)}</h2><p class="detail-english">${esc(x.name)}</p><button class="detail-favorite ${saved?'saved':''}" data-favorite="${x.id}">${icon('star')} ${saved?'즐겨찾기에 저장됨':'즐겨찾기에 저장'}</button>
+  ${['strength','powerlifting'].includes(x.activity)&&!['bodyweight','seconds'].includes(exerciseCandidate(x).basis)?`<button class="detail-favorite" data-train="max-edit" data-id="${x.id}">${icon('target')} 내 최대 중량 입력</button>`:''}
   ${methodImage(x)}
   <div class="anatomy-card">${bodyMap(x)}<div><small>주요 운동 부위</small><strong>${esc(x.primaryMuscles.map(m=>data.muscles[m]).join(' · ')||'확인 필요')}</strong><span>${x.regions.map(r=>({upper:'상체',lower:'하체',core:'코어',full:'전신·유산소',recovery:'회복',uncategorized:'미분류'}[r])).join(' · ')}</span><div class="map-legend"><i></i> 주요 부위 표시</div></div></div>
   <p class="detail-summary">${esc(x.summaryKo)}</p><section class="detail-section"><h3>운동 정보</h3><dl><div><dt>필요한 도구</dt><dd>${esc(x.equipment.map(e=>data.equipment[e]).join(' · ')||'맨몸')}</dd></div><div><dt>함께 쓰는 부위</dt><dd>${esc(x.secondaryMuscles.map(m=>data.muscles[m]).join(' · ')||'원본에 추가 정보 없음')}</dd></div><div><dt>분류 방식</dt><dd>원본 정보를 공통 부위로 정리${x.supplements.length?' · 누락 정보 보완':''}</dd></div></dl>${x.needsReview?'<p class="review-note">원본의 도구 또는 주요 부위가 명확하지 않아 일부 정보는 확인이 필요해요. 도구가 미확인인 운동은 ‘내 도구’ 필터에서 제외됩니다.</p>':''}</section>
-  ${x.aliases.length>1?`<details class="detail-section"><summary>다른 이름 <span>${x.aliases.length}</span></summary><div class="alias-list">${x.aliases.map(a=>`<span>${esc(a)}</span>`).join('')}</div></details>`:''}
+  ${aliases.length>1?`<details class="detail-section"><summary>다른 이름 <span>${aliases.length}</span></summary><div class="alias-list">${aliases.map(a=>`<span>${esc(a)}</span>`).join('')}</div></details>`:''}
   ${x.originalInstructions?`<details class="detail-section"><summary>원본 운동 설명 <span>${esc(data.sources[x.originalInstructions.source].name)}</span></summary><p class="original-instructions">${esc(x.originalInstructions.text)}</p><p class="license-caption"><a href="${esc(assetUrl(x.originalInstructions.licenseUrl))}" target="_blank" rel="noopener noreferrer">${esc(x.originalInstructions.license)}</a> · ${esc(x.originalInstructions.author||data.sources[x.originalInstructions.source].name)}<br>원문 HTML·공백 정리 · 출처별 이용 조건 유지</p></details>`:''}
-  <section class="detail-section"><h3>이 운동의 출처 <span>${x.sources.length}</span></h3><div class="source-records">${x.sources.map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer"><span><strong>${esc(data.sources[s.source].name)}</strong><small>${esc(s.name)}</small><small>${esc(s.license)}${s.author?' · '+esc(s.author):s.authorStatus==='not-supplied-by-upstream'?' · 작성자 미제공':''}</small></span>${icon('link')}</a>`).join('')}</div></section>
+  <section class="detail-section"><h3>이 운동의 출처 <span>${sourceRows.length}</span></h3><div class="source-records">${sourceRows.map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer"><span><strong>${esc(data.sources[s.source].name)}</strong><small>${esc(s.name)}</small><small>${esc(s.license)}${s.author?' · '+esc(s.author):s.authorStatus==='not-supplied-by-upstream'?' · 작성자 미제공':''}</small></span>${icon('link')}</a>`).join('')}</div></section>
   <div class="detail-foot"><a href="./credits.html">전체 출처·저작권·이용 조건</a> · 그림·새 한국어 안내: <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a><br>한국어 표기·요약과 공통 분류는 도감을 위해 보완했습니다.<br>동작 일러스트는 원본 설명을 참고해 직접 제작했습니다.</div></div>`;
  mountReadingCards(d,'.detail-content');if(!d.open)d.showModal();
+ const intro=d.querySelector('.reading-intro');
+ if(intro){const title=intro.querySelector('h2');if(title)title.textContent=group.nameKo;
+  const choices=document.createElement('div');choices.className='equipment-picker';
+  choices.innerHTML=`<label for="detail-equipment">장비·동작 방식 선택</label><select id="detail-equipment">${group.variants.map(v=>`<option value="${v.id}" ${v.id===x.id?'selected':''} ${state.availableOnly&&!v.exercise.equipment.every(t=>state.tools.includes(t))?'disabled':''}>${esc(variantLabel(v,group,data.equipment))}</option>`).join('')}</select><p>그림·설명·최대 중량은 선택한 장비에 맞춰 표시돼요.</p><button class="training-button" data-action="detail-method">선택한 장비의 동작 보기 →</button>`;intro.querySelector('.detail-english')?.after(choices);
+ }
 }
 function showAbout(){
- const d=$('#about-dialog');d.innerHTML=`<div class="detail-top"><span>하나의 도감, 여러 출처</span><button data-action="close-about" aria-label="출처 창 닫기">${icon('close')}</button></div><div class="about-content"><div class="eyebrow">THE CATALOG</div><h2>운동을 모으고,<br>같은 움직임을 연결했어요.</h2><div class="about-stats"><div><strong>${fmt(data.meta.inputTotal)}</strong><span>원본 항목</span></div><div><strong>${fmt(data.meta.mergedAway)}</strong><span>통합한 중복</span></div><div><strong>${fmt(data.meta.catalogTotal)}</strong><span>도감의 운동</span></div></div><div class="about-source-list">${Object.entries(data.sources).map(([id,s])=>`<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.name)} ${icon('link')}</a><strong>${fmt(data.meta.inputCounts[id])}개</strong><small><a href="${esc(assetUrl(s.licenseUrl))}" target="_blank" rel="noopener noreferrer">${esc(s.license)}</a>${id==='liftosaur'?' · 장비 변형 포함':''}</small></div>`).join('')}</div><section><h3>어떻게 정리했나요?</h3><p>이름의 표현·어순·복수형과 도구 이름을 통일해 같은 운동을 연결했습니다. 장비, 각도, 그립, 한팔·한발, 보조·중량 및 번호가 있는 변형은 따로 유지합니다.</p><p>근육 부위와 도구는 원본을 기준으로 정리하고, 누락된 정보는 동작 이름 또는 일치하는 다른 원본으로 보완했습니다. ${data.meta.needsReview}개 항목에는 명확하지 않은 정보가 남아 있어 ‘확인 필요’로 표시합니다. 서로 다른 이름의 모든 동작을 사람이 검수한 목록은 아닙니다.</p><p>원본 사진과 GIF는 가져오지 않았습니다. 동작 일러스트는 직접 제작했으며, 현재 ${fmt(illustrations.approvedCount)}개 운동의 그림을 검수해 연결했습니다. 원본 설명의 라이선스와 출처는 운동 상세에서 확인할 수 있습니다.</p></section><section><h3>이용 조건과 공개 소스</h3><p>웹앱 코드는 AGPL-3.0으로 공개합니다. 가져온 설명은 각 원본의 이용 조건을 유지하며, 작성자와 번역별 라이선스를 함께 보존합니다. 그림과 새 한국어 안내는 CC BY-SA 4.0으로 제공합니다.</p><p><a href="./credits.html">전체 출처·저작권·라이선스 고지</a> · <a href="https://github.com/aoml3245/move-atlas" target="_blank" rel="noopener noreferrer">소스 코드 받기</a></p></section><div class="about-bottom"><small>원본 확인 · ${data.meta.checkedAt}</small><a class="primary-button" href="./catalog.json" target="_blank" rel="noopener noreferrer">${icon('download')} 통합 목록 JSON</a></div></div>`;mountReadingCards(d,'.about-content');d.showModal();
+ const d=$('#about-dialog');d.innerHTML=`<div class="detail-top"><span>하나의 도감, 여러 출처</span><button data-action="close-about" aria-label="출처 창 닫기">${icon('close')}</button></div><div class="about-content"><div class="eyebrow">THE CATALOG</div><h2>운동을 모으고,<br>같은 움직임을 연결했어요.</h2><div class="about-stats"><div><strong>${fmt(data.meta.inputTotal)}</strong><span>원본 항목</span></div><div><strong>${fmt(data.meta.mergedAway)}</strong><span>통합한 중복</span></div><div><strong>${fmt(exerciseIndex.groups.length)}</strong><span>대표 운동</span></div></div><div class="about-source-list">${Object.entries(data.sources).map(([id,s])=>`<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.name)} ${icon('link')}</a><strong>${fmt(data.meta.inputCounts[id])}개</strong><small><a href="${esc(assetUrl(s.licenseUrl))}" target="_blank" rel="noopener noreferrer">${esc(s.license)}</a>${id==='liftosaur'?' · 장비 변형 포함':''}</small></div>`).join('')}</div><section><h3>어떻게 정리했나요?</h3><p>이름의 표현·어순·복수형과 도구 이름을 통일해 같은 운동을 연결했습니다. 장비가 다른 운동은 대표 카드로 묶고 상세에서 선택합니다. 각도, 그립, 한팔·한발, 보조·중량 및 번호가 있는 동작 차이는 구분합니다. 기존 운동별 기록과 출처는 유지합니다.</p><p>근육 부위와 도구는 원본을 기준으로 정리하고, 누락된 정보는 동작 이름 또는 일치하는 다른 원본으로 보완했습니다. ${data.meta.needsReview}개 항목에는 명확하지 않은 정보가 남아 있어 ‘확인 필요’로 표시합니다. 서로 다른 이름의 모든 동작을 사람이 검수한 목록은 아닙니다.</p><p>원본 사진과 GIF는 가져오지 않았습니다. 동작 일러스트는 직접 제작했으며, 현재 ${fmt(illustrations.approvedCount)}개 운동의 그림을 검수해 연결했습니다. 원본 설명의 라이선스와 출처는 운동 상세에서 확인할 수 있습니다.</p></section><section><h3>이용 조건과 공개 소스</h3><p>웹앱 코드는 AGPL-3.0으로 공개합니다. 가져온 설명은 각 원본의 이용 조건을 유지하며, 작성자와 번역별 라이선스를 함께 보존합니다. 그림과 새 한국어 안내는 CC BY-SA 4.0으로 제공합니다.</p><p><a href="./credits.html">전체 출처·저작권·라이선스 고지</a> · <a href="https://github.com/aoml3245/move-atlas" target="_blank" rel="noopener noreferrer">소스 코드 받기</a></p></section><div class="about-bottom"><small>원본 확인 · ${data.meta.checkedAt}</small><a class="primary-button" href="./catalog.json" target="_blank" rel="noopener noreferrer">${icon('download')} 통합 목록 JSON</a></div></div>`;mountReadingCards(d,'.about-content');d.showModal();
 }
 
 function toggleFavorite(id){
- state.favorites=state.favorites.includes(id)?state.favorites.filter(x=>x!==id):[...state.favorites,id];persist();updateResults(false);
+ const group=exerciseIndex.byExercise.get(id)?.group,ids=group?.variants.flatMap(v=>v.exerciseIds)||[id],saved=ids.some(i=>state.favorites.includes(i));
+ state.favorites=saved?state.favorites.filter(x=>!ids.includes(x)):unique([...state.favorites,...ids]);persist();updateResults(false);
  if($('#detail-dialog').open&&openExercise?.id===id){const top=$('#detail-dialog').scrollTop;showDetail(id);$('#detail-dialog').scrollTop=top;}
 }
 function reset(){state={...state,region:'all',muscles:[],availableOnly:false,includeSecondary:false,withImages:false,activity:'all',query:''};$('#search').value='';persist();renderFilters();updateResults();}
@@ -191,6 +204,7 @@ function bind(){
   if(e.target.id==='with-images'){state.withImages=e.target.checked;updateResults();}
   if(e.target.id==='activity'){state.activity=e.target.value;updateResults();}
   if(e.target.id==='sort'){state.sort=e.target.value;updateResults();}
+  if(e.target.id==='detail-equipment')showDetail(e.target.value);
  });
  document.addEventListener('click',e=>{
   const el=e.target.closest('button, [data-action]');if(!el)return;
@@ -212,6 +226,7 @@ function bind(){
   if(action==='favorites'||action==='catalog'){state.onlyFavorites=action==='favorites';updateResults();}
   if(action==='about')showAbout();
   if(action==='close-detail')$('#detail-dialog').close();
+  if(action==='detail-method'){const select=$('#detail-dialog .screen-page-select');if(select){select.value='1';select.dispatchEvent(new Event('change'));}}
   if(action==='close-about')$('#about-dialog').close();
   if(action==='expand-image'&&openExercise){const asset=illustrations.assets[openExercise.id];if(asset){const d=$('#image-dialog');d.innerHTML=`<div class="detail-top"><span>${esc(openExercise.nameKo)}</span><button data-action="close-image" aria-label="이미지 닫기">${icon('close')}</button></div><div class="image-panel-options" aria-label="이미지 자세 선택"><button data-image-panel="all" aria-pressed="true">전체</button><button data-image-panel="setup" aria-pressed="false">${esc(asset.panels[0])}</button><button data-image-panel="action" aria-pressed="false">${esc(asset.panels[1])}</button></div><div class="image-stage" data-stage="all"><img src="${esc(assetUrl(asset.url))}" alt="${esc(openExercise.nameKo)} 동작 일러스트"></div><div class="image-dialog-captions">${(asset.panels||['준비 자세','동작 자세']).map((p,i)=>`<span data-image-caption="${i?'action':'setup'}"><strong>${esc(p)}</strong>${illustrationStep(asset,i,p,'small')}</span>`).join('')}</div>${illustrationExample(asset)}`;d.dataset.stage='all';d.showModal();}}
   if(action==='close-image')$('#image-dialog').close();

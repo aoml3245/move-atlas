@@ -107,10 +107,10 @@ export function planSets(program,profile,record,basis,role,cycle=0,prior=null){
  }else specs=Array.from({length:3},()=>[.65,program==='double'?8:8]);
  return specs.map(([pct,reps],i)=>({id:String(i),kind:'work',weight:['five','double','rir'].includes(program)&&prior?.weight>0?roundLoad(prior.weight,step,min):load(pct),reps,repsMax:program==='double'?12:reps,rir:2,percent:max&&pct?Math.round(pct*1000)/10:null,restSeconds:basis==='seconds'?60:program==='five'||program==='wave'||profile.goal==='strength'?180:90,basis}));
 }
-export function lastProgress(exerciseId,program,sessions,record,profile,basis=null){
+export function lastProgress(exerciseId,program,sessions,record,profile,basis=null,recordIds=[exerciseId]){
  const completed=sessions.filter(s=>s.status==='complete').sort((a,b)=>b.startedAt-a.startedAt);
  for(const session of completed){
-  const e=session.exercises?.find(e=>e.exerciseId===exerciseId);if(!e||(e.progressionProgram||session.program)!==program||basis&&e.basis!==basis)continue;
+  const e=session.exercises?.find(e=>recordIds.includes(e.exerciseId));if(!e||(e.progressionProgram||session.program)!==program||basis&&e.basis!==basis)continue;
   const sets=e.sets.filter(s=>s.kind==='work');if(!sets.length||!sets.every(s=>s.done&&s.actualWeight>0))return null;
   const weight=sets[0].actualWeight;if(!sets.every(s=>s.actualWeight===weight))return null;
   const step=record?.step||profile.step;
@@ -123,7 +123,7 @@ export function makeExercise(candidate,profile,maxima,sessions,catalog,cycle=0,a
  const x=catalog.find(e=>e.id===candidate.id);if(!x)throw Error('운동을 찾을 수 없어요.');
  if(additional)mode='double';
  const record=maxima[candidate.id]?.basis===candidate.basis?maxima[candidate.id]:null;
- const prior=lastProgress(candidate.id,mode,sessions,record,profile,candidate.basis);
+ const prior=lastProgress(candidate.id,mode,sessions,record,profile,candidate.basis,x.recordIds||[candidate.id]);
  let sets=planSets(mode,profile,record,candidate.basis,candidate.role,cycle,prior);
  const testing=!record&&profile.recordMode==='test'&&!['bodyweight','seconds'].includes(candidate.basis);
  if(testing&&!['five','wave'].includes(mode))sets=sets.slice(0,2).map((s,i)=>({...s,reps:i?5:8,repsMax:i?8:8,percent:null,weight:null,restSeconds:180}));
@@ -144,8 +144,9 @@ export function buildRoutine(profile,maxima={},sessions=[],catalog=[]){
   for(const role of roles){
    if(exercises.length>=maxExercises)break;
    let c=candidates.find(c=>c.role===role&&!used.has(c.id));if(!c){missing.push(role);continue;}
-   const swap=candidates.find(option=>option.id===profile.swaps?.[c.id]&&option.role===role&&!used.has(option.id));if(swap)c=swap;
-   used.add(c.id);
+   const replacement=byId.get(profile.swaps?.[c.id]);
+   const swap=candidates.find(option=>option.id===profile.swaps?.[c.id]&&option.role===role&&!used.has(option.id))||(PROGRAMS[profile.program].flexible&&replacement&&replacement.groupId&&replacement.groupId===byId.get(c.id)?.groupId&&canAddExercise(replacement,profile)&&!used.has(replacement.id)?exerciseCandidate(replacement):null);if(swap)c=swap;
+   for(const id of byId.get(c.id)?.recordIds||[c.id])used.add(id);
    const mode=profile.program==='wave'&&role!==roles[0]?'double':profile.program;
    exercises.push({...makeExercise(c,profile,maxima,sessions,catalog,cycle,false,mode),main:profile.program==='five'||role===roles[0],templateOrder:exercises.length});
   }
@@ -155,7 +156,7 @@ export function buildRoutine(profile,maxima={},sessions=[],catalog=[]){
    const x=byId.get(extra.exerciseId);
    if(!x||!canAddExercise(x,profile)){unavailable.push(x?.nameKo||'추가 운동');continue;}
    if(exercises.length>=40)break;
-   used.add(x.id);exercises.push(makeExercise(exerciseCandidate(x,extra.basis),profile,maxima,sessions,catalog,cycle,true));
+   for(const id of x.recordIds||[x.id])used.add(id);exercises.push(makeExercise(exerciseCandidate(x,extra.basis),profile,maxima,sessions,catalog,cycle,true));
   }
   return {index,name,exercises:orderExercises(exercises,edit?.order),manualOrder:!!edit?.order.length,missing,unavailable,warmup:[{id:'walk',name:'편하게 걷기',seconds:300},{id:'dynamic',name:'동적 스트레칭',seconds:180}],cycle};
  });
