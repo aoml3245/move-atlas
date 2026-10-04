@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The production build embeds the release that this running code belongs to.
 export const CURRENT_RELEASE = typeof __MOVE_ATLAS_RELEASE__ === 'undefined'
- ? {schema:1,version:'0.2.0',build:'development',releasedAt:null,revision:null,assets:{}}
+ ? {schema:1,version:'0.3.0',build:'development',releasedAt:null,revision:null,assets:{}}
  : __MOVE_ATLAS_RELEASE__;
 
 export function validateRelease(value){
