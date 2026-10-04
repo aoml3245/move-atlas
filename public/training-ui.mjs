@@ -53,7 +53,7 @@ export function initTraining({catalog,illustrations,getPreferences,setPreference
  }
  function maxView(){
   const saved=store.all('max'),plan=profile()?(()=>{try{return routine();}catch{return null;}})():null;
-  const ids=[...new Set([...(plan?.days.flatMap(d=>d.exercises.map(e=>e.exerciseId))||[]),...saved.map(e=>e.exerciseId)])];
+  const ids=[...new Set([...(plan?.days.flatMap(d=>d.exercises.filter(e=>!['bodyweight','seconds'].includes(e.basis)).map(e=>e.exerciseId))||[]),...saved.map(e=>e.exerciseId)])];
   const list=maxQuery?catalog.exercises.filter(e=>['strength','powerlifting'].includes(e.activity)&&`${e.name} ${e.nameKo}`.toLowerCase().includes(maxQuery.toLowerCase())).slice(0,35):ids.map(id=>byId.get(id)).filter(Boolean);
   const selected=maxSelection&&byId.get(maxSelection),record=selected&&maxima()[selected.id];const basis=record?.basis||CANDIDATES.find(c=>c.id===selected?.id)?.basis||(selected?.equipment.includes('dumbbell')?'perHand':selected?.equipment.length?'total':'bodyweight');
   return header('내 운동 중량','운동별로 실제 1RM과 추정 1RM을 구분해 보관해요. kg 기준으로 입력해 주세요.')+`<div class="training-card"><h2>처음이라면 가벼운 테스트부터</h2><p>자세를 유지하며 5–8회 수행하고, 더 할 수 있었던 반복 수를 적어 추정값을 만들 수 있어요. 워밍업을 먼저 하고 충분히 쉬세요. 이 값은 실제 최대 중량을 보장하지 않아요.</p><p class="training-hint">진짜 1RM을 이미 측정했다면 ‘실측 1RM’으로 입력하세요. 최대 중량 테스트는 동작 경험과 안전바·보조자가 준비된 상황에서 진행하세요. 매주 최대 중량을 재야 하는 것은 아니에요.</p></div>
