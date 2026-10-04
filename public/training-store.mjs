@@ -40,11 +40,14 @@ function validateEntity(e,id=e?.id){
  const v=e.value;
  if(e.kind==='profile')validateProfile(v);
  if(e.kind==='max'&&(!Number.isFinite(v.value)||v.value<=0||v.value>3000||typeof v.exerciseId!=='string'||id!==`max_${v.exerciseId}`||!['measured','estimated'].includes(v.source)||!BASIS[v.basis]||!Number.isFinite(v.step)||v.step<=0||v.step>100||!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(new Date(v.date).getTime())))throw Error('중량 기록 형식을 확인해 주세요.');
+ if(e.kind==='max'&&['testWeight','testReps','testRir'].some(k=>v[k]!==undefined&&(!Number.isFinite(v[k])||v[k]<0||v[k]>3000)))throw Error('최대 중량의 테스트 값을 확인해 주세요.');
  if(e.kind==='preferences'&&(!Array.isArray(v.tools)||!Array.isArray(v.favorites)||[...v.tools,...v.favorites].some(x=>typeof x!=='string')))throw Error('도감 설정 형식을 확인해 주세요.');
  if(e.kind==='session'){
   if(id!==`session_${v.id}`||!PROGRAMS[v.program]||!SPLITS[v.split]||!['active','complete','abandoned'].includes(v.status)||!Array.isArray(v.exercises)||!Array.isArray(v.warmup)||v.exercises.length>40||!Number.isFinite(v.startedAt))throw Error('운동 기록 형식이 올바르지 않아요.');
-  for(const exercise of v.exercises){if(typeof exercise.exerciseId!=='string'||!BASIS[exercise.basis]||!Array.isArray(exercise.sets)||exercise.sets.length>50)throw Error('세트 기록 형식을 확인해 주세요.');
+  if(v.warmup.length!==2||!v.warmup.some(w=>w.id==='walk'&&w.seconds===300)||!v.warmup.some(w=>w.id==='dynamic'&&w.seconds===180))throw Error('걷기와 스트레칭 기록을 확인해 주세요.');
+  for(const exercise of v.exercises){if(!/^ex_[a-f0-9]{14}$/.test(exercise.exerciseId)||!BASIS[exercise.basis]||!Array.isArray(exercise.sets)||exercise.sets.length>50)throw Error('세트 기록 형식을 확인해 주세요.');
    for(const s of exercise.sets){if(!['work','warmup'].includes(s.kind)||!Number.isFinite(s.reps)||s.reps<=0||s.reps>2000||!Number.isFinite(s.restSeconds)||s.restSeconds<0||s.restSeconds>1800||(s.weight!==null&&(!Number.isFinite(s.weight)||s.weight<0||s.weight>3000)))throw Error('세트 목표를 확인해 주세요.');if(s.done&&(!Number.isFinite(s.actualWeight)||s.actualWeight<0||!Number.isFinite(s.actualReps)||s.actualReps<=0))throw Error('완료 세트 값을 확인해 주세요.');}
+   for(const s of exercise.sets)if(['actualWeight','actualReps','actualRir','rir','repsMax'].some(k=>s[k]!==undefined&&(!Number.isFinite(s[k])||s[k]<0||s[k]>3000)))throw Error('세트의 중량과 반복 값을 확인해 주세요.');
   }
   if(v.timer&&(!Number.isFinite(v.timer.deadline)||typeof v.timer.id!=='string'||(v.timer.paused&&(!Number.isFinite(v.timer.remaining)||v.timer.remaining<0))))throw Error('타이머 기록 형식을 확인해 주세요.');
  }

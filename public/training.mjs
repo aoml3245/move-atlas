@@ -51,6 +51,7 @@ export function availableCandidates(profile,catalog){
 const PATTERNS={full:[['전신 A',['squat','bench','row','core']],['전신 B',['hinge','press','pull','core']]],upperLower:[['상체',['bench','row','press','pull','curl']],['하체',['squat','hinge','lunge','legCurl','calf','core']]],ppl:[['밀기',['bench','press','triceps','core']],['당기기',['row','pull','curl','core']],['하체',['squat','hinge','lunge','calf','core']]],four:[['가슴 · 삼두',['bench','triceps','core']],['등 · 이두',['row','pull','curl']],['하체',['squat','hinge','legCurl','calf']],['어깨 · 코어',['press','core']]]};
 export function validateProfile(profile){
  if(!PROGRAMS[profile.program]||!SPLITS[profile.split])throw Error('분할과 루틴 방식을 골라 주세요.');
+ if(!['muscle','strength','general'].includes(profile.goal)||!['beginner','trained'].includes(profile.experience)||![35,50,60,90].includes(profile.minutes)||!['records','test'].includes(profile.recordMode))throw Error('목표·경험·시간·중량 시작 방법을 확인해 주세요.');
  if(!Array.isArray(profile.days)||!profile.days.length||new Set(profile.days).size!==profile.days.length||profile.days.some(d=>!Number.isInteger(d)||d<0||d>6))throw Error('운동할 요일을 하나 이상 골라 주세요.');
  if(!Number.isFinite(profile.step)||profile.step<=0||profile.step>100||!Number.isFinite(profile.barWeight)||profile.barWeight<0||profile.barWeight>100)throw Error('증량 단위와 바 중량을 확인해 주세요.');
  if(!Array.isArray(profile.equipment))throw Error('사용 가능한 도구를 골라 주세요.');

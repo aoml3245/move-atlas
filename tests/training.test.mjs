@@ -93,3 +93,12 @@ test('storage failure is reported and keeps the unsaved record available for bac
  assert.equal(s.backup().entities.max_lift.value.value,50);
  assert.match(s.storageError,/백업/);
 });
+test('imports reject executable identifiers and nonnumeric input fields before merging',()=>{
+ const s=new TrainingStore(storage()),session=createSession(buildRoutine(gym,max,[],catalog),0,1,'unsafe');
+ const entry={id:'session_unsafe',kind:'session',updatedAt:Date.now(),value:session};
+ const wrap=e=>({format:'move-atlas-training-backup',version:1,entities:{session_unsafe:e}});
+ const invalidId=structuredClone(entry);invalidId.value.exercises[0].exerciseId='x" onclick="alert(1)';assert.throws(()=>s.importBackup(wrap(invalidId)));
+ const invalidInput=structuredClone(entry);invalidInput.value.exercises[0].sets[0].actualWeight='" onfocus="alert(1)';assert.throws(()=>s.importBackup(wrap(invalidInput)));
+ const invalidWarmup=structuredClone(entry);invalidWarmup.value.warmup[0].id='walk" onclick="alert(1)';assert.throws(()=>s.importBackup(wrap(invalidWarmup)));
+ assert.equal(s.all('session').length,0);
+});
