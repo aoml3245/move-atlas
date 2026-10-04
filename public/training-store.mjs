@@ -1,10 +1,15 @@
 export function mergeSession(a,b){
  const latest=(a.changedAt||0)>(b.changedAt||0)?a:b, other=latest===a?b:a;
  const merged=structuredClone(latest);
+ merged.removedExercises={...(a.removedExercises||{})};
+ for(const [id,time]of Object.entries(b.removedExercises||{}))merged.removedExercises[id]=Math.max(time,merged.removedExercises[id]||0);
+ // Keep additions from either device, with explicit removals winning over older additions.
+ for(const e of other.exercises||[])if(e.additional&&!merged.exercises.some(x=>x.exerciseId===e.exerciseId))merged.exercises.push(structuredClone(e));
  merged.exercises=merged.exercises.map(e=>({...e,sets:e.sets.map(s=>{
   const prior=other.exercises?.find(o=>o.exerciseId===e.exerciseId)?.sets.find(t=>t.id===s.id);
   return prior&&(prior.changedAt||0)>(s.changedAt||0)?structuredClone(prior):s;
  })}));
+ merged.exercises=merged.exercises.filter(e=>!e.additional||!merged.removedExercises[e.exerciseId]||(e.addedAt||0)>merged.removedExercises[e.exerciseId]||e.sets.some(s=>s.done));
  merged.warmup=merged.warmup.map(w=>{const old=other.warmup?.find(o=>o.id===w.id);return old&&(old.changedAt||0)>(w.changedAt||0)?old:w;});
  return merged;
 }
@@ -45,7 +50,9 @@ function validateEntity(e,id=e?.id){
  if(e.kind==='session'){
   if(id!==`session_${v.id}`||!PROGRAMS[v.program]||!SPLITS[v.split]||!['active','complete','abandoned'].includes(v.status)||!Array.isArray(v.exercises)||!Array.isArray(v.warmup)||v.exercises.length>40||!Number.isFinite(v.startedAt))throw Error('운동 기록 형식이 올바르지 않아요.');
   if(v.warmup.length!==2||!v.warmup.some(w=>w.id==='walk'&&w.seconds===300)||!v.warmup.some(w=>w.id==='dynamic'&&w.seconds===180))throw Error('걷기와 스트레칭 기록을 확인해 주세요.');
+  if(v.removedExercises!==undefined&&(!v.removedExercises||Array.isArray(v.removedExercises)||typeof v.removedExercises!=='object'||Object.keys(v.removedExercises).length>200||Object.entries(v.removedExercises).some(([id,t])=>!/^ex_[a-f0-9]{14}$/.test(id)||!Number.isFinite(t)||t<=0)))throw Error('추가 운동 변경 기록을 확인해 주세요.');
   for(const exercise of v.exercises){if(!/^ex_[a-f0-9]{14}$/.test(exercise.exerciseId)||!BASIS[exercise.basis]||!Array.isArray(exercise.sets)||exercise.sets.length>50)throw Error('세트 기록 형식을 확인해 주세요.');
+   if(exercise.progressionProgram!==undefined&&!PROGRAMS[exercise.progressionProgram]||exercise.addedAt!==undefined&&(!Number.isFinite(exercise.addedAt)||exercise.addedAt<=0))throw Error('운동 추가 설정을 확인해 주세요.');
    for(const s of exercise.sets){if(!['work','warmup'].includes(s.kind)||!Number.isFinite(s.reps)||s.reps<=0||s.reps>2000||!Number.isFinite(s.restSeconds)||s.restSeconds<0||s.restSeconds>1800||(s.weight!==null&&(!Number.isFinite(s.weight)||s.weight<0||s.weight>3000)))throw Error('세트 목표를 확인해 주세요.');if(s.done&&(!Number.isFinite(s.actualWeight)||s.actualWeight<0||!Number.isFinite(s.actualReps)||s.actualReps<=0))throw Error('완료 세트 값을 확인해 주세요.');}
    for(const s of exercise.sets)if(['actualWeight','actualReps','actualRir','rir','repsMax'].some(k=>s[k]!==undefined&&(!Number.isFinite(s[k])||s[k]<0||s[k]>3000)))throw Error('세트의 중량과 반복 값을 확인해 주세요.');
   }

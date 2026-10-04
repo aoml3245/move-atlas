@@ -1,12 +1,91 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {DEFAULT_PROFILE,CANDIDATES,estimate1RM,roundLoad,validateProfile,buildRoutine,createSession,sessionStats,remainingSeconds,lastProgress} from '../public/training.mjs';
+import {DEFAULT_PROFILE,CANDIDATES,estimate1RM,roundLoad,validateProfile,buildRoutine,createSession,sessionStats,remainingSeconds,lastProgress,dayKey,exerciseCandidate,canAddExercise,makeExercise,orderExercises,orderRemaining} from '../public/training.mjs';
 import {TrainingStore,mergeSession,mergeEntity} from '../public/training-store.mjs';
 const catalog=JSON.parse(await readFile(new URL('../public/catalog.json',import.meta.url))).exercises;
 const gym={...DEFAULT_PROFILE,experience:'trained',recordMode:'records',equipment:['barbell','plates','bench','power_rack','dumbbell','cable','cable_bar','machine']};
 const max={ex_c9b82dda3a0dfa:{exerciseId:'ex_c9b82dda3a0dfa',value:100,basis:'total',step:2.5,date:'2026-10-01',source:'measured'}};
 const storage=()=>{const map=new Map();return{getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v)};};
+const lateral=catalog.find(e=>e.movement==='lateral_raise'&&e.equipment.length===1&&e.equipment[0]==='dumbbell'&&!e.needsReview);
+
+test('unavailable equipment does not consume a time-limited recommendation slot',()=>{
+ const plan=buildRoutine({...DEFAULT_PROFILE,minutes:50}, {},[],catalog);
+ assert.equal(plan.days[0].exercises.length,4);
+ assert.ok(plan.days[0].exercises.some(e=>e.role==='curl'));
+ assert.ok(plan.days[0].missing.includes('pull'));
+});
+test('persistent additions survive time limits, apply to one day and keep their own load basis',()=>{
+ const p={...DEFAULT_PROFILE,minutes:35,recordMode:'records'};
+ p.dayEdits={[dayKey(p,0)]:{additions:[{exerciseId:lateral.id,basis:'perHand'}],order:[]}};
+ const maxima={...max,[lateral.id]:{value:20,basis:'perHand',step:1}};
+ const plan=buildRoutine(p,maxima,[],catalog),extra=plan.days[0].exercises.find(e=>e.exerciseId===lateral.id);
+ assert.equal(plan.days[0].exercises.length,4);assert.equal(extra.additional,true);assert.equal(extra.progressionProgram,'double');
+ assert.deepEqual(extra.sets.filter(s=>s.kind==='work').map(s=>s.weight),[13,13,13]);
+ assert.ok(!plan.days[1].exercises.some(e=>e.exerciseId===lateral.id));
+ const other=buildRoutine({...p,program:'rir'},maxima,[],catalog);assert.ok(!other.days[0].exercises.some(e=>e.exerciseId===lateral.id));
+ const changedBasis=structuredClone(p);changedBasis.dayEdits[dayKey(p,0)].additions[0].basis='single';assert.ok(buildRoutine(changedBasis,maxima,[],catalog).days[0].exercises.find(e=>e.exerciseId===lateral.id).sets.every(s=>s.weight===null));
+});
+test('additional catalog exercises require all equipment and missing saved additions stay available for later',()=>{
+ assert.equal(canAddExercise(lateral,{...DEFAULT_PROFILE,equipment:[]}),false);
+ const p={...DEFAULT_PROFILE,equipment:[],dayEdits:{}};p.dayEdits[dayKey(p,0)]={additions:[{exerciseId:lateral.id,basis:'perHand'}],order:[]};
+ const plan=buildRoutine(p,{},[],catalog);assert.deepEqual(plan.days[0].unavailable,[lateral.nameKo]);
+ assert.equal(canAddExercise({...lateral,needsReview:true},DEFAULT_PROFILE),false);
+ assert.equal(canAddExercise({...lateral,equipment:['dumbbell','bench']},{...DEFAULT_PROFILE,equipment:['dumbbell']}),false);
+ assert.equal(exerciseCandidate({...lateral,id:'ex_00000000000000',equipment:['cable']}).basis,'machine');
+});
+test('additional exercises progress using their own double progression across parent programs',()=>{
+ const p={...gym,program:'five',split:'full',dayEdits:{}};
+ p.dayEdits[dayKey(p,0)]={additions:[{exerciseId:lateral.id,basis:'perHand'}],order:[]};
+ const previous={status:'complete',program:'five',split:'full',startedAt:1,exercises:[{exerciseId:lateral.id,basis:'perHand',additional:true,progressionProgram:'double',sets:Array.from({length:3},()=>({kind:'work',done:true,actualWeight:5,actualReps:12,actualRir:2,reps:8}))}]};
+ const next=buildRoutine(p,{},[previous],catalog).days[0].exercises.find(e=>e.exerciseId===lateral.id);
+ assert.deepEqual(next.sets.filter(s=>s.kind==='work').map(s=>s.weight),[7.5,7.5,7.5]);
+ assert.equal(next.sets.filter(s=>s.kind==='work').length,3);
+ p.dayEdits[dayKey(p,0)].additions[0].basis='single';assert.ok(buildRoutine(p,{},[previous],catalog).days[0].exercises.find(e=>e.exerciseId===lateral.id).sets.every(s=>s.weight===null));
+});
+test('recommended order puts main lifts and compounds before isolation and core, with explicit priority overrides',()=>{
+ const e=(exerciseId,role,main=false)=>({exerciseId,role,main,sets:[]});
+ const list=[e('core','core'),e('curl','curl'),e('row','row'),e('bench','bench',true)];
+ assert.deepEqual(orderExercises(list).map(e=>e.exerciseId),['bench','row','curl','core']);
+ assert.deepEqual(orderExercises(list,['curl','bench','row','core']).map(e=>e.exerciseId),['curl','bench','row','core']);
+ assert.equal(list[0].exerciseId,'core');
+ const five=buildRoutine({...gym,program:'five',split:'full'},max,[],catalog);
+ assert.deepEqual(five.days[1].exercises.map(e=>e.role),['squat','press','hinge']);
+});
+test('manual day order persists through a backup and future sessions while current snapshots stay intact',()=>{
+ const p={...gym},base=buildRoutine(p,max,[],catalog),snapshot=createSession(base,0,1,'snapshot'),ids=base.days[0].exercises.map(e=>e.exerciseId).reverse();
+ p.dayEdits={[dayKey(p,0)]:{additions:[{exerciseId:lateral.id,basis:'perHand'}],order:[lateral.id,...ids]}};
+ const store=new TrainingStore(storage());store.save('profile','main',p);
+ const restored=new TrainingStore(storage());restored.importBackup(store.backup());
+ const plan=buildRoutine(restored.get('profile','main'),max,[],catalog);
+ assert.deepEqual(plan.days[0].exercises.map(e=>e.exerciseId),[lateral.id,...ids]);
+ assert.equal(createSession(plan,0,1,'ordered').manualOrder,true);assert.deepEqual(snapshot.exercises.map(e=>e.exerciseId),base.days[0].exercises.map(e=>e.exerciseId));
+});
+test('ordering and adding during a session preserves recorded sets, lift targets and timer',()=>{
+ const session=createSession(buildRoutine(gym,max,[],catalog),0,1,'ongoing');
+ session.exercises[0].sets[0]={...session.exercises[0].sets[0],done:true,actualWeight:30,actualReps:8,actualRir:2};
+ session.timer={id:'rest',deadline:123456,paused:false};const recorded=structuredClone(session.exercises[0]),targets=new Map(session.exercises.map(e=>[e.exerciseId,structuredClone(e.sets)]));
+ session.exercises.push(makeExercise(exerciseCandidate(lateral),gym,max,[],catalog,0,true));session.exercises=orderRemaining(session.exercises.reverse());
+ // A recorded exercise keeps its current slot even when the remaining order is reset.
+ assert.deepEqual(session.exercises.at(-1),recorded);assert.equal(session.timer.deadline,123456);
+ for(const e of session.exercises)if(targets.has(e.exerciseId))assert.deepEqual(e.sets,targets.get(e.exerciseId));
+});
+test('concurrent additions merge once, explicit removal persists, and later re-addition is allowed',()=>{
+ const base=createSession(buildRoutine(gym,max,[],catalog),0,1,'extras'),a=structuredClone(base),b=structuredClone(base);
+ const extra={...makeExercise(exerciseCandidate(lateral),gym,{},[],catalog,0,true),addedAt:100};
+ a.exercises.push(extra);a.changedAt=100;b.changedAt=200;
+ assert.equal(mergeSession(a,b).exercises.filter(e=>e.exerciseId===lateral.id).length,1);
+ const removed=structuredClone(b);removed.changedAt=300;removed.removedExercises={[lateral.id]:300};
+ assert.ok(!mergeSession(a,removed).exercises.some(e=>e.exerciseId===lateral.id));
+ const readded=structuredClone(a);readded.exercises.at(-1).addedAt=400;readded.changedAt=400;
+ assert.ok(mergeSession(removed,readded).exercises.some(e=>e.exerciseId===lateral.id));
+ const fromRoutine=structuredClone(a);delete fromRoutine.exercises.at(-1).addedAt;assert.ok(mergeSession(fromRoutine,b).exercises.some(e=>e.exerciseId===lateral.id));
+});
+test('backup rejects malformed added exercise IDs and order entries before merging',()=>{
+ const store=new TrainingStore(storage()),p=structuredClone(gym);p.dayEdits={[dayKey(p,0)]:{additions:[{exerciseId:lateral.id,basis:'perHand'}],order:['bad" onclick="alert(1)']}};
+ const wrap=value=>({format:'move-atlas-training-backup',version:1,entities:{profile_main:{id:'profile_main',kind:'profile',updatedAt:Date.now(),value}}});
+ assert.throws(()=>store.importBackup(wrap(p)));p.dayEdits[dayKey(p,0)].order=[];p.dayEdits[dayKey(p,0)].additions[0].basis='unexpected';assert.throws(()=>store.importBackup(wrap(p)));assert.equal(store.get('profile','main'),null);
+});
 
 test('1RM estimate validates short rep tests and keeps estimates distinct from measured singles',()=>{
  assert.equal(estimate1RM(60,5,2),74);assert.equal(estimate1RM(100,1,0),100);

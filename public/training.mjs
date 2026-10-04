@@ -33,6 +33,30 @@ export const CANDIDATES = [
  ['ex_063a170f9da60b','core',[],'seconds']
 ].map(([id,role,required,basis])=>({id,role,required,basis}));
 export const BASIS = {total:'바 포함 총중량', perHand:'덤벨 한 손당', single:'도구 하나의 중량', machine:'해당 머신 표시 중량', bodyweight:'맨몸', seconds:'시간(초)', added:'추가 중량'};
+export const dayKey=(profile,index)=>`${profile.program}:${profile.split}:${index}`;
+const compoundRoles=new Set(['squat','hinge','bench','row','pull','press','lunge']);
+export function exerciseCandidate(exercise,basis){
+ const curated=CANDIDATES.find(c=>c.id===exercise.id);
+ const role=curated?.role||({deadlift:'hinge',hinge:'hinge',bench_press:'bench',pushup:'bench',dip:'bench',shoulder_press:'press',pulldown:'pull',pullup:'pull',leg_curl:'legCurl',leg_extension:'legExtension',calf_raise:'calf',triceps_extension:'triceps',crunch:'core',plank:'core',situp:'core',leg_raise:'core'}[exercise.movement]||exercise.movement||'other');
+ const tools=exercise.equipment.filter(t=>t!=='bodyweight');
+ return {id:exercise.id,role,required:curated?.required||tools,basis:basis||curated?.basis||(exercise.movement==='plank'?'seconds':tools.some(t=>['machine','cable'].includes(t))?'machine':tools.includes('dumbbell')?'perHand':tools.some(t=>['barbell','ez_bar','trap_bar'].includes(t))?'total':tools.length?'single':'bodyweight')};
+}
+export function canAddExercise(exercise,profile){
+ return ['strength','powerlifting'].includes(exercise.activity)&&!exercise.needsReview&&exerciseCandidate(exercise).required.every(t=>profile.equipment.includes(t));
+}
+export function orderLabel(exercise){return exercise.main?'주요 운동':compoundRoles.has(exercise.role)?'복합 운동':exercise.role==='core'?'코어':exercise.role==='other'?'순서 직접 확인':'보조 운동';}
+export function orderExercises(exercises,order=[]){
+ const rank=e=>e.main?0:compoundRoles.has(e.role)?1:e.role==='core'?3:2;
+ const automatic=[...exercises].sort((a,b)=>rank(a)-rank(b)||(a.main&&b.main?(a.templateOrder||0)-(b.templateOrder||0):0));
+ if(!order.length)return automatic;
+ const byId=new Map(exercises.map(e=>[e.exerciseId,e]));
+ return [...new Set(order)].filter(id=>byId.has(id)).map(id=>byId.get(id)).concat(automatic.filter(e=>!order.includes(e.exerciseId)));
+}
+// Keep every exercise with recorded sets at its current position while changing the remainder.
+export function orderRemaining(exercises){
+ const pending=orderExercises(exercises.filter(e=>!e.sets.some(s=>s.done)));
+ return exercises.map(e=>e.sets.some(s=>s.done)?e:pending.shift());
+}
 export const DEFAULT_PROFILE = {split:'upperLower',program:'percent',goal:'muscle',experience:'beginner',days:[1,3,5],minutes:60,equipment:['dumbbell','bench'],step:2.5,barWeight:20,recordMode:'test',sound:true,keepAwake:true};
 export function estimate1RM(weight,reps,rir=0){
  weight=Number(weight);reps=Number(reps);rir=Number(rir);
@@ -55,6 +79,12 @@ export function validateProfile(profile){
  if(!Array.isArray(profile.days)||!profile.days.length||new Set(profile.days).size!==profile.days.length||profile.days.some(d=>!Number.isInteger(d)||d<0||d>6))throw Error('운동할 요일을 하나 이상 골라 주세요.');
  if(!Number.isFinite(profile.step)||profile.step<=0||profile.step>100||!Number.isFinite(profile.barWeight)||profile.barWeight<0||profile.barWeight>100)throw Error('증량 단위와 바 중량을 확인해 주세요.');
  if(!Array.isArray(profile.equipment))throw Error('사용 가능한 도구를 골라 주세요.');
+ if(profile.dayEdits!==undefined){
+  if(!profile.dayEdits||Array.isArray(profile.dayEdits)||typeof profile.dayEdits!=='object'||Object.keys(profile.dayEdits).length>100)throw Error('추가 운동 설정을 확인해 주세요.');
+  for(const [key,edit] of Object.entries(profile.dayEdits)){
+   if(!/^(percent|rir|double|five|wave):(full|upperLower|ppl|four):[0-3]$/.test(key)||!edit||!Array.isArray(edit.additions)||!Array.isArray(edit.order)||edit.additions.length>40||edit.order.length>40||edit.order.some(id=>!/^ex_[a-f0-9]{14}$/.test(id))||edit.additions.some(e=>!e||!/^ex_[a-f0-9]{14}$/.test(e.exerciseId)||!BASIS[e.basis]))throw Error('추가 운동과 순서 설정을 확인해 주세요.');
+  }
+ }
  if(profile.program==='five'){
   if(profile.days.length!==3)throw Error('5×5 참고 루틴은 주 3일을 골라 주세요.');
   const ds=[...profile.days].sort((a,b)=>a-b);if(ds.some((d,i)=>(ds[(i+1)%ds.length]+(i===ds.length-1?7:0)-d)<2))throw Error('5×5는 운동일 사이에 하루 이상 쉬도록 요일을 골라 주세요.');
@@ -77,11 +107,10 @@ export function planSets(program,profile,record,basis,role,cycle=0,prior=null){
  }else specs=Array.from({length:3},()=>[.65,program==='double'?8:8]);
  return specs.map(([pct,reps],i)=>({id:String(i),kind:'work',weight:['five','double','rir'].includes(program)&&prior?.weight>0?roundLoad(prior.weight,step,min):load(pct),reps,repsMax:program==='double'?12:reps,rir:2,percent:max&&pct?Math.round(pct*1000)/10:null,restSeconds:basis==='seconds'?60:program==='five'||program==='wave'||profile.goal==='strength'?180:90,basis}));
 }
-export function lastProgress(exerciseId,program,sessions,record,profile){
+export function lastProgress(exerciseId,program,sessions,record,profile,basis=null){
  const completed=sessions.filter(s=>s.status==='complete').sort((a,b)=>b.startedAt-a.startedAt);
  for(const session of completed){
-  if(session.program!==program)continue;
-  const e=session.exercises?.find(e=>e.exerciseId===exerciseId);if(!e)continue;
+  const e=session.exercises?.find(e=>e.exerciseId===exerciseId);if(!e||(e.progressionProgram||session.program)!==program||basis&&e.basis!==basis)continue;
   const sets=e.sets.filter(s=>s.kind==='work');if(!sets.length||!sets.every(s=>s.done&&s.actualWeight>0))return null;
   const weight=sets[0].actualWeight;if(!sets.every(s=>s.actualWeight===weight))return null;
   const step=record?.step||profile.step;
@@ -89,6 +118,18 @@ export function lastProgress(exerciseId,program,sessions,record,profile){
   return {weight:weight+(success&&['five','double'].includes(program)?step:0),message:success&&['five','double'].includes(program)?'지난 목표 달성 · 한 단계 증량':'지난 중량으로 시작 · 여유 반복에 맞춰 조절'};
  }
  return null;
+}
+export function makeExercise(candidate,profile,maxima,sessions,catalog,cycle=0,additional=false,mode=profile.program){
+ const x=catalog.find(e=>e.id===candidate.id);if(!x)throw Error('운동을 찾을 수 없어요.');
+ if(additional)mode='double';
+ const record=maxima[candidate.id]?.basis===candidate.basis?maxima[candidate.id]:null;
+ const prior=lastProgress(candidate.id,mode,sessions,record,profile,candidate.basis);
+ let sets=planSets(mode,profile,record,candidate.basis,candidate.role,cycle,prior);
+ const testing=!record&&profile.recordMode==='test'&&!['bodyweight','seconds'].includes(candidate.basis);
+ if(testing&&!['five','wave'].includes(mode))sets=sets.slice(0,2).map((s,i)=>({...s,reps:i?5:8,repsMax:i?8:8,percent:null,weight:null,restSeconds:180}));
+ const working=sets.find(s=>s.weight)?.weight;
+ const warmup=working&&!['bodyweight','seconds'].includes(candidate.basis)?[.5,.75].map((p,i)=>({id:`w${i}`,kind:'warmup',weight:roundLoad(working*p,record?.step||profile.step,candidate.basis==='total'?profile.barWeight:0),reps:i?5:8,restSeconds:60,basis:candidate.basis})).filter(s=>s.weight&&s.weight<working):[];
+ return {exerciseId:candidate.id,name:x.nameKo,basis:candidate.basis,role:candidate.role,additional,progressionProgram:mode,testing,sets:[...warmup,...sets],note:prior?.message||(testing?'가벼운 테스트 · 5–8회와 여유 반복을 기록한 뒤 추정 1RM으로 저장해요.':!record&&!['bodyweight','seconds'].includes(candidate.basis)?'중량 미설정 · 가볍게 시작해 기록을 넣어 주세요.':additional?'추가 운동 · 8–12회, 약 2회 여유부터 조절해요.':''),measuredAt:record?.date||null};
 }
 export function buildRoutine(profile,maxima={},sessions=[],catalog=[]){
  validateProfile(profile);const candidates=availableCandidates(profile,catalog),byId=new Map(catalog.map(e=>[e.id,e]));
@@ -100,27 +141,30 @@ export function buildRoutine(profile,maxima={},sessions=[],catalog=[]){
  const maxExercises=profile.minutes<=35?3:profile.minutes<=50?4:6;
  const days=patterns.map(([name,roles],index)=>{
   const missing=[],used=new Set();const exercises=[];
-  for(const role of roles.slice(0,maxExercises)){
+  for(const role of roles){
+   if(exercises.length>=maxExercises)break;
    let c=candidates.find(c=>c.role===role&&!used.has(c.id));if(!c){missing.push(role);continue;}
    const swap=candidates.find(option=>option.id===profile.swaps?.[c.id]&&option.role===role&&!used.has(option.id));if(swap)c=swap;
    used.add(c.id);
-   const x=byId.get(c.id),record=maxima[c.id]?.basis===c.basis?maxima[c.id]:null,prior=lastProgress(c.id,profile.program,sessions,record,profile);
    const mode=profile.program==='wave'&&role!==roles[0]?'double':profile.program;
-   let sets=planSets(mode,profile,record,c.basis,role,cycle,prior);
-   const testing=!record&&profile.recordMode==='test'&&!['bodyweight','seconds'].includes(c.basis);
-   if(testing&&!['five','wave'].includes(profile.program))sets=sets.slice(0,2).map((s,i)=>({...s,reps:i?5:8,repsMax:i?8:8,percent:null,weight:null,restSeconds:180}));
-   const working=sets.find(s=>s.weight)?.weight;
-   const warmup=working&&c.basis!=='bodyweight'&&c.basis!=='seconds'?[.5,.75].map((p,i)=>({id:`w${i}`,kind:'warmup',weight:roundLoad(working*p,record?.step||profile.step,c.basis==='total'?profile.barWeight:0),reps:i?5:8,restSeconds:60,basis:c.basis})).filter(s=>s.weight&&s.weight<working):[];
-   exercises.push({exerciseId:c.id,name:x.nameKo,basis:c.basis,role,testing,sets:[...warmup,...sets],note:prior?.message||(testing?'가벼운 테스트 · 5–8회와 여유 반복을 기록한 뒤 추정 1RM으로 저장해요.':!record&&c.basis!=='bodyweight'&&c.basis!=='seconds'?'중량 미설정 · 가볍게 시작해 기록을 넣어 주세요.':''),measuredAt:record?.date||null});
+   exercises.push({...makeExercise(c,profile,maxima,sessions,catalog,cycle,false,mode),main:profile.program==='five'||role===roles[0],templateOrder:exercises.length});
   }
-  return {index,name,exercises,missing,warmup:[{id:'walk',name:'편하게 걷기',seconds:300},{id:'dynamic',name:'동적 스트레칭',seconds:180}],cycle};
+  const edit=profile.dayEdits?.[dayKey(profile,index)],unavailable=[];
+  for(const extra of edit?.additions||[]){
+   if(used.has(extra.exerciseId))continue;
+   const x=byId.get(extra.exerciseId);
+   if(!x||!canAddExercise(x,profile)){unavailable.push(x?.nameKo||'추가 운동');continue;}
+   if(exercises.length>=40)break;
+   used.add(x.id);exercises.push(makeExercise(exerciseCandidate(x,extra.basis),profile,maxima,sessions,catalog,cycle,true));
+  }
+  return {index,name,exercises:orderExercises(exercises,edit?.order),manualOrder:!!edit?.order.length,missing,unavailable,warmup:[{id:'walk',name:'편하게 걷기',seconds:300},{id:'dynamic',name:'동적 스트레칭',seconds:180}],cycle};
  });
  if(days.some(d=>!d.exercises.length))throw Error('선택한 장비로 이 분할을 구성하기 어려워요. 전신 분할을 고르거나 도구를 추가해 주세요.');
  return {program:profile.program,split:profile.split,days,nextDay:completed%days.length,cycle};
 }
 export function createSession(plan,dayIndex,now=Date.now(),id=globalThis.crypto.randomUUID()){
  const day=plan.days[dayIndex];
- return {id,program:plan.program,split:plan.split,dayIndex,name:day.name,cycle:plan.cycle,startedAt:now,status:'active',warmup:day.warmup.map(w=>({...w,done:false})),exercises:structuredClone(day.exercises),notes:'',timer:null};
+ return {id,program:plan.program,split:plan.split,dayIndex,name:day.name,cycle:plan.cycle,manualOrder:day.manualOrder,startedAt:now,status:'active',warmup:day.warmup.map(w=>({...w,done:false})),exercises:structuredClone(day.exercises),notes:'',timer:null};
 }
 export function sessionStats(session){
  const done=session.exercises.flatMap(e=>e.sets.filter(s=>s.done&&s.kind==='work').map(s=>({...s,basis:e.basis})));
