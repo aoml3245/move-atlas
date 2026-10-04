@@ -12,7 +12,7 @@ const server = http.createServer(async (req,res) => {
     if (!file.startsWith(root + sep)) {res.writeHead(403);return res.end();}
     const info = await stat(file);
     if (!info.isFile()) {res.writeHead(404);return res.end();}
-    res.writeHead(200, {'Content-Type':mime[extname(file)] || 'application/octet-stream','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'"});
+    res.writeHead(200, {'Content-Type':mime[extname(file)] || 'application/octet-stream','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://*.firebaseapp.com; frame-src https://*.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'; base-uri 'self'"});
     res.end(req.method === 'HEAD' ? undefined : await readFile(file));
   } catch {res.writeHead(404);res.end('Not found');}
 });

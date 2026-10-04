@@ -9,3 +9,7 @@ work/
 node_modules/
 *.pem
 *.key
+firebase-debug*.log
+firestore-debug*.log
+public/cloud.js
+public/cloud.js.LEGAL.txt

@@ -2,7 +2,7 @@ import { cp, rm, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 const root = resolve(import.meta.dirname,'..');
-for (const file of ['app.js','filters.mjs','urls.mjs']) {
+for (const file of ['app.js','filters.mjs','urls.mjs','training.mjs','training-ui.mjs','training-store.mjs']) {
   const check = spawnSync(process.execPath,['--check',resolve(root,'public',file)],{stdio:'inherit'});
   if (check.status !== 0) process.exit(check.status || 1);
 }
@@ -14,6 +14,8 @@ const imageCheck=spawnSync(process.execPath,[resolve(root,'scripts/validate-illu
 if(imageCheck.status!==0)process.exit(imageCheck.status||1);
 await rm(resolve(root,'dist'),{recursive:true,force:true});
 await cp(resolve(root,'public'),resolve(root,'dist'),{recursive:true});
+const cloudBuild=spawnSync(process.execPath,[resolve(root,'scripts/build-cloud.mjs'),'--dist'],{stdio:'inherit'});
+if(cloudBuild.status!==0)process.exit(cloudBuild.status||1);
 const { stat, readdir }=await import('node:fs/promises');
 async function bytes(path){let total=0;for(const entry of await readdir(path,{withFileTypes:true})){const p=resolve(path,entry.name);total+=entry.isDirectory()?await bytes(p):(await stat(p)).size;}return total;}
 const totalBytes=await bytes(resolve(root,'dist'));

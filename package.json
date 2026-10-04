@@ -5,7 +5,7 @@
   "type": "module",
   "description": "An attributed, searchable exercise catalog with equipment availability filters.",
   "scripts": {
-    "dev": "node scripts/serve.mjs",
+    "dev": "npm run cloud:build && node scripts/serve.mjs",
     "preview": "node scripts/serve.mjs --dist",
     "data": "python3 scripts/catalog.py",
     "illustrations:prepare": "python3 scripts/prepare-illustrations.py",
@@ -13,12 +13,24 @@
     "illustrations:progress": "node scripts/illustration-progress.mjs",
     "test": "node --test tests/*.test.mjs && python3 tests/catalog_test.py",
     "build": "node scripts/build.mjs",
-    "licenses": "node scripts/build-credits.mjs"
+    "licenses": "node scripts/build-credits.mjs",
+    "cloud:build": "node scripts/build-cloud.mjs",
+    "test:rules": "node --test tests/firestore-rules.test.mjs"
   },
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "https://github.com/aoml3245/move-atlas.git"
   },
-  "homepage": "https://aoml3245.github.io/move-atlas/"
+  "homepage": "https://aoml3245.github.io/move-atlas/",
+  "overrides": {
+    "@grpc/grpc-js": "^1.13.6"
+  },
+  "dependencies": {
+    "firebase": "^12.19.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "esbuild": "^0.28.2"
+  }
 }

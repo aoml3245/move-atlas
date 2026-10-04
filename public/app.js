@@ -1,5 +1,6 @@
 import { matchesExercise, sortExercises } from './filters.mjs';
 import { assetUrl } from './urls.mjs';
+import { initTraining } from './training-ui.mjs';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -24,11 +25,12 @@ function icon(name, cls='') {return `<svg class="icon ${cls}" viewBox="0 0 24 24
 let data, results = [], shown = 60, openExercise, expandedTools = false;
 let illustrations={version:1,approvedCount:0,assets:{}};
 let illustrationProgress=null;
+let training;
 const KEY='move-atlas.preferences:v1';
 const base={region:'all',muscles:[],tools:[],availableOnly:false,includeSecondary:false,activity:'all',onlyFavorites:false,withImages:false,favorites:[],query:'',sort:'classic'};
 let state={...base};
 try {const p=JSON.parse(localStorage.getItem(KEY)||'null');if(p?.version===1) state={...state,tools:Array.isArray(p.tools)?p.tools:[],availableOnly:!!p.availableOnly,favorites:Array.isArray(p.favorites)?p.favorites:[]};} catch {}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify({version:1,tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}));}catch{}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify({version:1,tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}));window.dispatchEvent(new Event('move-atlas-preferences'));}catch{}}
 const regions=[['all','모든 운동','grid'],['upper','상체','dumbbell'],['lower','하체','steps'],['core','코어','target'],['full','전신·유산소','bolt']];
 const activities={all:'모든 유형',strength:'근력 운동',stretching:'스트레칭',cardio:'유산소',plyometrics:'점프·폭발력',powerlifting:'파워리프팅','olympic weightlifting':'역도',strongman:'스트롱맨',recovery:'호흡·회복'};
 const commonTools=['dumbbell','barbell','bench','cable','machine','band','kettlebell','pullup_bar'];
@@ -54,6 +56,7 @@ async function start(){
      <footer class="main-footer"><span>MOVE ATLAS <span class="footer-dot">·</span> 작은 움직임부터, 꾸준하게.</span><div class="footer-links"><a href="https://github.com/aoml3245/move-atlas" target="_blank" rel="noopener noreferrer">소스 코드</a><a href="./credits.html">출처·라이선스</a><button data-action="about">통합 기준 ${icon('arrow')}</button></div></footer>
     </main></div><div class="mobile-backdrop" data-action="mobile-close"></div>`;
   bind();renderFilters();updateResults();renderIllustrationProgress();
+  training=initTraining({catalog:data,illustrations,getPreferences:()=>({tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}),setPreferences:p=>{state.tools=(p.tools||[]).filter(id=>data.equipment[id]&&id!=='unknown');state.favorites=(p.favorites||[]).filter(id=>data.exercises.some(x=>x.id===id));state.availableOnly=!!p.availableOnly;try{localStorage.setItem(KEY,JSON.stringify({version:1,tools:state.tools,availableOnly:state.availableOnly,favorites:state.favorites}));}catch{}renderFilters();updateResults();},showDetail});
   if(illustrationProgress?.scope==='all-exercises')setInterval(refreshIllustrations,60000);
  } catch (error){$('#app').innerHTML=`<div class="initial-loading"><h1>운동 목록을 불러오지 못했어요.</h1><p>${esc(error.message)}</p><button id="retry" class="primary-button">다시 불러오기</button></div>`;$('#retry')?.addEventListener('click',()=>location.reload());}
 }
@@ -101,7 +104,7 @@ function updateResults(reset=true){
  results=sortExercises(data.exercises.filter(x=>matchesExercise(x,state)),state.sort);
  renderResults();renderActiveFilters();
  $('#favorite-count').textContent=state.favorites.length;
- document.querySelectorAll('.nav-tab').forEach((el,i)=>el.classList.toggle('active',i===Number(state.onlyFavorites)));
+ if(!document.body.classList.contains('training-open'))document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.dataset.action===(state.onlyFavorites?'favorites':'catalog')));
 }
 function renderActiveFilters(){
  const chips=[];
@@ -157,6 +160,7 @@ function showDetail(id){
  const x=data.exercises.find(e=>e.id===id);if(!x)return;openExercise=x;
  const d=$('#detail-dialog');
  d.innerHTML=`<div class="detail-top"><span>운동 자세히 보기</span><button data-action="close-detail" aria-label="상세 닫기">${icon('close')}</button></div><div class="detail-content"><div class="detail-eyebrow">${esc(activities[x.activity]||'근력 운동')} <span>·</span> ${esc(x.movementLabel)}</div><h2>${esc(x.nameKo)}</h2><p class="detail-english">${esc(x.name)}</p><button class="detail-favorite ${state.favorites.includes(x.id)?'saved':''}" data-favorite="${x.id}">${icon('star')} ${state.favorites.includes(x.id)?'즐겨찾기에 저장됨':'즐겨찾기에 저장'}</button>
+  ${['strength','powerlifting'].includes(x.activity)&&x.equipment.length?`<button class="detail-favorite" data-train="max-edit" data-id="${x.id}">${icon('target')} 내 최대 중량 입력</button>`:''}
   ${methodImage(x)}
   <div class="anatomy-card">${bodyMap(x)}<div><small>주요 운동 부위</small><strong>${esc(x.primaryMuscles.map(m=>data.muscles[m]).join(' · ')||'확인 필요')}</strong><span>${x.regions.map(r=>({upper:'상체',lower:'하체',core:'코어',full:'전신·유산소',recovery:'회복',uncategorized:'미분류'}[r])).join(' · ')}</span><div class="map-legend"><i></i> 주요 부위 표시</div></div></div>
   <p class="detail-summary">${esc(x.summaryKo)}</p><section class="detail-section"><h3>운동 정보</h3><dl><div><dt>필요한 도구</dt><dd>${esc(x.equipment.map(e=>data.equipment[e]).join(' · ')||'맨몸')}</dd></div><div><dt>함께 쓰는 부위</dt><dd>${esc(x.secondaryMuscles.map(m=>data.muscles[m]).join(' · ')||'원본에 추가 정보 없음')}</dd></div><div><dt>분류 방식</dt><dd>원본 정보를 공통 부위로 정리${x.supplements.length?' · 누락 정보 보완':''}</dd></div></dl>${x.needsReview?'<p class="review-note">원본의 도구 또는 주요 부위가 명확하지 않아 일부 정보는 확인이 필요해요. 도구가 미확인인 운동은 ‘내 도구’ 필터에서 제외됩니다.</p>':''}</section>

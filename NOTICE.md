@@ -1,7 +1,7 @@
 # Move Atlas — copyright, attribution and license notice
 
 Copyright (c) 2026 Move Atlas contributors (aoml3245).
-Publication review: 2026-10-03. This is an independent project; the upstream
+Publication review: 2026-10-04. This is an independent project; the upstream
 projects and reference publishers have not endorsed it.
 
 ## Scope of the project license
@@ -88,6 +88,24 @@ resizing, drawing edits or pose changes. `data/illustration-reviews.json` record
 the original visually reviewed SHA-256 and the separate delivery SHA-256.
 Original PNGs, rejected candidates and private production logs remain local
 and are not required to build or run the published app.
+
+## Training templates and bundled software
+
+The training engine, UI, record storage and sync implementation are independently
+written AGPL-3.0-only source. The factual research references and app-specific
+adaptations are listed in `public/training-guide.html`: ACSM, NSCA, StrongLifts
+and Jim Wendler's publicly available articles. Paid guides, original prose,
+logos, program screenshots and spreadsheet assets are not distributed.
+StrongLifts and 5/3/1 names identify references, not endorsement or affiliation.
+
+The Firebase JavaScript SDK (Google LLC and contributors) is Apache-2.0, with
+the protobuf component under BSD-3-Clause. Full upstream terms are retained in
+`public/licenses/firebase-sdk.txt`, obtained from the official
+https://github.com/firebase/firebase-js-sdk/blob/main/LICENSE on 2026-10-04.
+The generated browser bundle retains its source copyright/license comments in
+`cloud.js.LEGAL.txt`. esbuild is an MIT-licensed build dependency; npm package
+versions and the dependency tree are preserved in `package-lock.json`.
+Third-party licenses remain applicable and are not replaced by the project license.
 
 ## Reuse and limitations
 

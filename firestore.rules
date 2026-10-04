@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  match /users/{uid}/items/{id} {
+   function owner() { return request.auth != null && request.auth.uid == uid; }
+   allow read: if owner();
+   allow create, update: if owner()
+    && request.resource.data.keys().hasOnly(['id', 'kind', 'value', 'updatedAt'])
+    && request.resource.data.id == id
+    && request.resource.data.kind in ['profile', 'max', 'session', 'preferences']
+    && request.resource.data.value is map
+    && request.resource.data.updatedAt is number
+    && request.resource.data.updatedAt > 0
+    && request.resource.data.updatedAt <= request.time.toMillis() + 300000;
+   allow delete: if owner();
+  }
+ }
+}
