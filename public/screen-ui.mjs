@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {clampPage,resumeSet,sessionPosition,textPages} from './screen-state.mjs';
+import {clampPage,resumeSet,sessionPosition,textPages,inputViewportLayout} from './screen-state.mjs';
 import {assetUrl} from './urls.mjs';
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;};
 const button=(text,action)=>{const node=el('button','screen-button',text);node.type='button';node.dataset.screen=action;return node;};
@@ -31,7 +31,28 @@ export function installCompactNavigation(){
   grid.addEventListener('click',e=>{if(e.target.closest('button'))dialog.close();});dialog.replaceChildren(head,grid);dialog.showModal();
  };
  document.body.classList.add('card-app');
- const size=()=>{document.documentElement.style.setProperty('--app-height',`${window.visualViewport?.height||window.innerHeight}px`);};size();window.visualViewport?.addEventListener('resize',size);
+ const closeKeyboard=button('키보드 닫기','keyboard-close');closeKeyboard.classList.add('keyboard-close');closeKeyboard.hidden=true;
+ const app=document.querySelector('#app');app.append(closeKeyboard);
+ const editable=node=>node?.matches('textarea,input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=hidden]):not([type=button]):not([type=submit])')&&!node.disabled&&!node.readOnly;
+ let baselineHeight=window.innerHeight,lastWidth=window.innerWidth,compact=false,frame=null,lastInput=null;
+ const size=()=>{
+  frame=null;const viewport=window.visualViewport,width=window.innerWidth,layoutHeight=window.innerHeight;
+  if(Math.abs(width-lastWidth)>80){baselineHeight=layoutHeight;lastWidth=width;}
+  if(!viewport||viewport.scale<=1.05)baselineHeight=Math.max(baselineHeight,layoutHeight,viewport?.height||0);
+  const focused=document.activeElement,editing=editable(focused),wasCompact=compact;
+  const state=inputViewportLayout({width,layoutHeight,visualHeight:viewport?.height||layoutHeight,baselineHeight,offsetTop:viewport?.offsetTop||0,scale:viewport?.scale||1,editing,wasCompact});
+  const root=document.documentElement;root.style.setProperty('--app-height',`${state.height}px`);root.style.setProperty('--app-top',`${state.top}px`);
+  compact=state.compact;document.body.classList.toggle('input-compact',compact);closeKeyboard.hidden=!compact;
+  const toolbarInput=editing?!!focused.closest('.screen-toolbar'):compact&&document.body.classList.contains('input-toolbar-active');
+  document.body.classList.toggle('input-toolbar-active',toolbarInput);
+  const host=document.querySelector('dialog[open]')||app;if(closeKeyboard.parentElement!==host)host.append(closeKeyboard);
+  if(editing&&compact&&(!wasCompact||focused!==lastInput))requestAnimationFrame(()=>{if(focused.isConnected&&document.activeElement===focused)focused.scrollIntoView({block:'nearest',inline:'nearest'});});
+  if(editing)lastInput=focused;
+ };
+ const schedule=()=>{if(frame===null)frame=requestAnimationFrame(size);};
+ closeKeyboard.onclick=()=>{lastInput?.blur();document.activeElement?.blur();schedule();};
+ size();window.addEventListener('resize',schedule);window.visualViewport?.addEventListener('resize',schedule);window.visualViewport?.addEventListener('scroll',schedule);
+ document.addEventListener('focusin',schedule);document.addEventListener('focusout',schedule);
 }
 
 export class CardScreens {

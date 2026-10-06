@@ -10,6 +10,14 @@ export function catalogCapacity(width,height){
  const rows=columns===1?1:height>=670?2:1;
  return {columns,rows,size:columns*rows};
 }
+export function inputViewportLayout({width,layoutHeight,visualHeight=layoutHeight,baselineHeight=layoutHeight,offsetTop=0,scale=1,editing=false,wasCompact=false}){
+ // The keyboard can shrink the visual viewport while CSS height queries still
+ // see the original layout viewport. Pinch zoom should retain normal panning.
+ const zoomed=scale>1.05,height=Math.max(1,zoomed?layoutHeight:visualHeight);
+ const reduced=Math.max(layoutHeight,baselineHeight)-height>120;
+ const compact=!zoomed&&width<1050&&((editing&&(reduced||height<520))||wasCompact&&reduced);
+ return {height,compact,top:compact?Math.max(0,offsetTop):0};
+}
 export function sessionPosition(session){
  const warmup=session.warmup.findIndex(w=>!w.done);if(warmup>=0)return {page:`warm-${warmup}`,set:0};
  const exercise=session.exercises.findIndex(e=>e.sets.some(s=>!s.done));

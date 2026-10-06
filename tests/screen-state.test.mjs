@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {clampPage,pageSlice,catalogCapacity,sessionPosition,resumeSet,textPages} from '../public/screen-state.mjs';
+import {clampPage,pageSlice,catalogCapacity,sessionPosition,resumeSet,textPages,inputViewportLayout} from '../public/screen-state.mjs';
 
 test('every catalog exercise remains reachable without a growing list',()=>{
  const exercises=Array.from({length:2844},(_,id)=>({id}));
@@ -15,6 +15,23 @@ test('every catalog exercise remains reachable without a growing list',()=>{
 test('cards adapt to short, mobile and wide viewports',()=>{
  assert.deepEqual(catalogCapacity(390,844),{columns:1,rows:1,size:1});
  assert.equal(catalogCapacity(1280,720).size,6);assert.equal(catalogCapacity(1280,640).size,3);assert.equal(catalogCapacity(1600,900).size,8);
+});
+test('keyboard input uses the visual height even when the layout viewport stays tall',()=>{
+ assert.deepEqual(inputViewportLayout({width:390,layoutHeight:844,visualHeight:360,editing:true}),{height:360,compact:true,top:0});
+ assert.deepEqual(inputViewportLayout({width:390,layoutHeight:360,visualHeight:360,baselineHeight:844,editing:true}),{height:360,compact:true,top:0});
+ assert.deepEqual(inputViewportLayout({width:820,layoutHeight:1180,visualHeight:620,offsetTop:80,editing:true}),{height:620,compact:true,top:80});
+ assert.deepEqual(inputViewportLayout({width:844,layoutHeight:360,editing:true}),{height:360,compact:true,top:0});
+});
+test('input layout survives keyboard dismissal animation and restores after closing',()=>{
+ assert.equal(inputViewportLayout({width:390,layoutHeight:844,visualHeight:360,wasCompact:true}).compact,true);
+ assert.deepEqual(inputViewportLayout({width:390,layoutHeight:844,visualHeight:844,wasCompact:true}),{height:844,compact:false,top:0});
+ assert.equal(inputViewportLayout({width:390,layoutHeight:480,editing:true}).compact,true);
+ assert.equal(inputViewportLayout({width:390,layoutHeight:480,editing:false,wasCompact:true}).compact,false);
+});
+test('normal browser chrome and pinch zoom do not trigger keyboard input layout',()=>{
+ assert.equal(inputViewportLayout({width:390,layoutHeight:844,visualHeight:760,editing:true}).compact,false);
+ assert.deepEqual(inputViewportLayout({width:390,layoutHeight:844,visualHeight:350,offsetTop:100,scale:2,editing:true}),{height:844,compact:false,top:0});
+ assert.equal(inputViewportLayout({width:1280,layoutHeight:400,editing:true}).compact,false);
 });
 test('resume moves through warmup, unfinished sets and finish without changing records',()=>{
  const session={warmup:[{done:false},{done:false}],exercises:[{sets:[{done:false},{done:false}]},{sets:[{done:false}]}]};

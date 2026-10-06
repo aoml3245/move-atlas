@@ -84,7 +84,6 @@ body.card-app{height:var(--app-height,100dvh);overflow:hidden;background:#f3f5fa
 @media(max-width:699px){.timer-counter small{font-size:9px;display:block}.screen-timer .timer-counter .timer-display{font-size:30px}}
 .screen-lift-order{display:none}
 @media(max-width:699px) and (max-height:680px){.screen-session .exercise-order{display:none}.screen-lift-order{display:inline-block;font-size:10px;padding:4px 7px;min-height:25px;margin:3px 4px 3px 0}.screen-page>.screen-session{padding:10px;gap:5px}.screen-session .screen-lift-content{gap:5px}}
-@media(max-width:699px) and (max-height:500px){body:has(.screen-session input:focus) .training-heading,body:has(.screen-session input:focus) .screen-toolbar,body:has(.screen-session input:focus) .screen-art,body:has(.screen-session input:focus) .session-exercise-heading,body:has(.screen-session input:focus) .screen-timer,body:has(.screen-session input:focus) .screen-pager{display:none!important}.screen-session .screen-lift-content{justify-content:center;flex:1}}
 .card-app .workspace{width:100%;max-width:none;margin:0}
 .card-app .image-dialog{height:calc(var(--app-height,100dvh) - 28px);max-height:calc(var(--app-height,100dvh) - 28px);overflow:hidden}
 .card-app .image-dialog[open]{display:flex;flex-direction:column}.card-app .image-dialog .detail-top,.card-app .image-panel-options,.card-app .image-dialog-captions,.card-app .image-dialog>.illustration-example{flex:none}.card-app .image-dialog .detail-top{position:static;padding:14px 18px}.card-app .image-stage{flex:1;min-height:0;display:flex;align-items:center}.card-app .image-stage img{height:100%;object-fit:contain;flex:none}.card-app .image-dialog-captions{font-size:12px;padding:10px 16px;gap:12px}.card-app .image-dialog>.illustration-example{font-size:11px;line-height:1.5;padding-bottom:10px}
@@ -94,6 +93,33 @@ body.card-app{height:var(--app-height,100dvh);overflow:hidden;background:#f3f5fa
 .training-shell[data-screen-view=max]:has(#max-equipment-picker) .screen-toolbar{display:grid;grid-template-columns:minmax(140px,1fr) minmax(200px,1fr);align-items:center}.training-shell[data-screen-view=max] .screen-toolbar>#max-equipment-picker{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(160px,1fr);align-items:center;margin:0}.screen-toolbar #max-equipment-picker small{grid-column:1/-1}.screen-toolbar #max-equipment-picker select{font-size:13px}.addition-row label{max-width:none}.equipment-modal{width:min(620px,calc(100% - 28px));max-height:calc(var(--app-height,100dvh) - 28px);overflow:hidden}
 @media(max-width:699px){.training-shell[data-screen-view=max]:has(#max-equipment-picker) .screen-toolbar{grid-template-columns:1fr;gap:7px}.training-shell[data-screen-view=max] .screen-toolbar>#max-equipment-picker{grid-template-columns:auto minmax(0,1fr)}.screen-toolbar #max-equipment-picker small{display:none}.reading-intro .equipment-picker{font-size:12px}.equipment-picker select{padding:9px}.addition-modal .addition-row{padding:6px 0}.addition-modal .addition-row small{font-size:11px;margin:4px 0}.addition-modal .addition-row .training-thumb{max-height:180px}.addition-modal .addition-row>.training-button{margin-left:0}.equipment-modal{padding:20px}}
 @media(max-width:699px){.addition-modal .addition-row .training-thumb{width:105px}}
-@media(max-width:699px) and (max-height:500px){.training-shell[data-screen-view=max]:has(input:focus) .training-heading,.training-shell[data-screen-view=max]:has(input:focus) .screen-toolbar>.training-search,.training-shell[data-screen-view=max]:has(input:focus) .screen-toolbar>.card-title,.training-shell[data-screen-view=max]:has(input:focus) .screen-page>.training-hint{display:none!important}.training-shell[data-screen-view=max]:has(input:focus) .screen-page{padding:10px}.training-shell[data-screen-view=max]:has(input:focus) .screen-max-fields{gap:10px}.training-shell[data-screen-view=max]:has(input:focus) input,.training-shell[data-screen-view=max]:has(input:focus) .screen-max-fields select{padding:8px;font-size:14px}}
 .variant-picker{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:10px;width:100%;min-width:0}.variant-picker>label{display:flex;flex-direction:column;gap:5px;margin:0;min-width:0;font-size:12px}.variant-picker select{display:block;width:100%;min-width:0;max-width:100%;border:1px solid #dce3f0;border-radius:10px;padding:9px;background:#fff;color:#30466c;font:inherit;text-overflow:ellipsis}.reading-intro .equipment-picker{max-width:800px}.training-shell[data-screen-view=max] .screen-toolbar>#max-equipment-picker{display:block}.screen-toolbar #max-equipment-picker small{display:block;margin-top:5px}.addition-row .variant-picker{margin:6px 0}.equipment-modal .variant-picker{margin:6px 0}
 @media(max-width:699px){.variant-picker{gap:7px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.variant-picker>label{font-size:11px}.reading-intro .variant-picker{grid-template-columns:1fr}.reading-intro .equipment-picker{margin:8px 0;gap:5px}.reading-intro .equipment-picker .training-button{margin-top:3px}.addition-row .variant-picker{grid-template-columns:1fr}.addition-row .variant-picker>label{gap:3px}.addition-row .variant-picker select{padding:7px}.screen-toolbar #max-equipment-picker small{display:none}}
+
+/* Input layout follows the visual viewport, including keyboard resize/panning.
+   Keep short content inside its card instead of overlapping the timer/footer. */
+.keyboard-close{flex:none;align-self:stretch;margin:0 12px 8px;min-height:38px;background:#fff;color:var(--blue)}
+body.card-app.input-compact #app{position:fixed;top:var(--app-top,0px);left:0;right:0;height:var(--app-height,100dvh)}
+.input-compact .topbar,.input-compact .training-heading,.input-compact .screen-toolbar,.input-compact .screen-art,.input-compact .screen-session .session-exercise-heading,.input-compact .screen-timer,.input-compact .screen-pager{display:none!important}
+.input-compact.input-toolbar-active .screen-toolbar{display:flex!important}
+.input-compact.input-toolbar-active .screen-toolbar>*{display:none!important}
+.input-compact.input-toolbar-active .screen-toolbar>.training-search{display:flex!important}
+.card-app.input-compact .training-shell{padding:8px 12px!important}
+.input-compact .screen-frame.with-dock{display:flex;flex-direction:column}
+.input-compact .screen-stage{overflow:hidden}
+.input-compact .screen-page>.screen-session{display:flex!important;flex-direction:column;padding:12px;gap:8px;overflow:hidden}
+.input-compact .screen-session .screen-lift-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;justify-content:flex-start;gap:8px;padding-bottom:4px}
+.input-compact .screen-session .screen-sets,.input-compact .screen-set-picker{flex:none}
+.input-compact .screen-page>:is(.training-card,.setup-field,.setup-section,.screen-advanced,.screen-review){min-height:0;overflow-y:auto;overscroll-behavior:contain;justify-content:flex-start}
+.input-compact .screen-max-fields{gap:8px;align-content:start}
+.input-compact .screen-page>.training-hint{display:none}
+.input-compact dialog[open]{top:calc(var(--app-top,0px) + 8px)!important;bottom:auto!important;left:8px;right:8px;margin:0 auto!important;width:calc(100% - 16px);height:calc(var(--app-height,100dvh) - 16px);max-height:calc(var(--app-height,100dvh) - 16px);overflow-y:auto}
+.input-compact dialog[open]>.keyboard-close{margin:8px 0 0;position:sticky;bottom:0;z-index:1}
+.input-compact .screen-dialog-content{overflow-y:auto;overscroll-behavior:contain;justify-content:flex-start}
+.input-compact .addition-modal>p,.input-compact .addition-modal .addition-filters>label:not(:first-child),.input-compact .addition-modal .training-thumb{display:none!important}
+.input-compact .addition-modal .addition-row{min-height:0;overflow-y:auto;display:block;overscroll-behavior:contain}
+@media(max-width:1049px){
+ .card-app input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]),.card-app textarea{font-size:16px!important}
+ .card-app .screen-session .set-form input{font-size:21px!important}
+ .card-app.input-compact .screen-session .set-form input{font-size:18px!important;padding:8px 5px!important}
+}
