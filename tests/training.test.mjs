@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {DEFAULT_PROFILE,CANDIDATES,estimate1RM,roundLoad,validateProfile,buildRoutine,createSession,sessionStats,remainingSeconds,lastProgress,dayKey,exerciseCandidate,canAddExercise,makeExercise,orderExercises,orderRemaining} from '../public/training.mjs';
+import {DEFAULT_PROFILE,CANDIDATES,estimate1RM,roundLoad,validateProfile,buildRoutine,createSession,sessionStats,remainingSeconds,clearCompletedWarmupTimer,toggleWarmupCompletion,lastProgress,dayKey,exerciseCandidate,canAddExercise,makeExercise,orderExercises,orderRemaining} from '../public/training.mjs';
 import {TrainingStore,mergeSession,mergeEntity} from '../public/training-store.mjs';
 const catalog=JSON.parse(await readFile(new URL('../public/catalog.json',import.meta.url))).exercises;
 const gym={...DEFAULT_PROFILE,experience:'trained',recordMode:'records',equipment:['barbell','plates','bench','power_rack','dumbbell','cable','cable_bar','machine']};
@@ -146,6 +146,33 @@ test('double progression increments only when all worksets meet the upper rep go
 });
 test('timer restoration follows the deadline, supports pauses and caps overdue time at zero',()=>{
  assert.equal(remainingSeconds({deadline:10000,paused:false},1000),9);assert.equal(remainingSeconds({deadline:10000,paused:false},20000),0);assert.equal(remainingSeconds({paused:true,remaining:12},999999),12);
+});
+test('completing a warmup clears its running or paused timer and persists the reset',()=>{
+ for(const paused of [false,true]){
+  const session=createSession(buildRoutine(gym,max,[],catalog),0,1,'warmup-reset'),store=new TrainingStore(storage());
+  for(const id of ['walk','dynamic']){
+   session.timer={id:'timer-'+id,warmupId:id,deadline:999999,remaining:30,paused,notified:false};
+   assert.equal(toggleWarmupCompletion(session,id,100),true);assert.equal(session.timer,null);
+   assert.equal(remainingSeconds(session.timer,100),0);assert.equal(session.warmup.find(w=>w.id===id).changedAt,100);
+   store.save('session',session.id,session);store.load();assert.equal(store.get('session',session.id).timer,null);
+  }
+  assert.equal(toggleWarmupCompletion(session,'walk',200),false);assert.equal(session.timer,null);
+ }
+});
+test('warmup completion preserves a different active warmup or set rest timer',()=>{
+ const session=createSession(buildRoutine(gym,max,[],catalog),0,1,'other-timer');
+ for(const warmupId of ['dynamic',null]){
+  session.warmup[0].done=false;const timer={id:'other',warmupId,deadline:10000,paused:false};session.timer=timer;
+  toggleWarmupCompletion(session,'walk',1000);assert.equal(session.timer,timer);assert.equal(remainingSeconds(session.timer,1000),9);
+ }
+});
+test('old and merged completed warmup timers are cleared without removing workout records',()=>{
+ const original=createSession(buildRoutine(gym,max,[],catalog),0,1,'old-timer'),completed=structuredClone(original),other=structuredClone(original);
+ completed.warmup[0]={...completed.warmup[0],done:true,changedAt:200};completed.changedAt=200;
+ other.timer={id:'stale',warmupId:'walk',deadline:999999,paused:false};other.changedAt=300;
+ const merged=mergeSession(completed,other);assert.equal(merged.warmup[0].done,true);assert.equal(merged.timer,null);assert.deepEqual(merged.exercises,original.exercises);
+ completed.timer=other.timer;assert.equal(clearCompletedWarmupTimer(completed),true);assert.equal(clearCompletedWarmupTimer(completed),false);
+ original.timer=other.timer;assert.equal(clearCompletedWarmupTimer(original),false);assert.equal(original.timer,other.timer);
 });
 test('account data are isolated and backup import merges without discarding existing records',()=>{
  const s=new TrainingStore(storage());s.save('max','lift-a',{...max.ex_c9b82dda3a0dfa,exerciseId:'lift-a'});const backup=s.backup();

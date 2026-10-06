@@ -1,4 +1,4 @@
-import {PROGRAMS,SPLITS,BASIS,CANDIDATES,DEFAULT_PROFILE,buildRoutine,createSession,estimate1RM,sessionStats,remainingSeconds,needsReview,validateProfile,dayKey,exerciseCandidate,canAddExercise,makeExercise,orderLabel,orderRemaining} from './training.mjs';
+import {PROGRAMS,SPLITS,BASIS,CANDIDATES,DEFAULT_PROFILE,buildRoutine,createSession,estimate1RM,sessionStats,remainingSeconds,clearCompletedWarmupTimer,toggleWarmupCompletion,needsReview,validateProfile,dayKey,exerciseCandidate,canAddExercise,makeExercise,orderLabel,orderRemaining} from './training.mjs';
 import {CardScreens,installCompactNavigation} from './screen-ui.mjs';
 import {pageSlice} from './screen-state.mjs';
 import {TrainingStore} from './training-store.mjs';
@@ -214,7 +214,13 @@ export function initTraining({catalog,exerciseIndex,illustrations,getPreferences
  async function acquireWake(){if(!profile()?.keepAwake||!active()||document.hidden)return;try{if(!wake||wake.released)wake=await navigator.wakeLock?.request('screen');}catch{}const el=shell.querySelector('#wake-status');if(el)el.textContent=wake&&!wake.released?'화면 켜두기 사용 중. 화면 잠금·다른 앱 전환 시에는 소리가 늦어질 수 있어요.':'화면 잠금·다른 앱 전환 시 소리가 늦어질 수 있어요. 화면을 켜두고 사용해 주세요.';}
  function saveSession(s){s.changedAt=Date.now();store.save('session',s.id,s);}
  function startTimer(s,seconds,label,warmupId=null){s.timer={id:crypto.randomUUID(),deadline:Date.now()+seconds*1000,label,warmupId,paused:false,notified:false};saveSession(s);acquireWake();}
- function tick(){if(resetting)return;const s=active(),t=s?.timer,seconds=remainingSeconds(t),display=shell.querySelector('#timer-display');const time=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;if(display)display.textContent=time;mini.hidden=!t||(view==='today'&&!shell.hidden);mini.textContent=t?`${t.paused?'일시정지':seconds===0?'휴식 끝':t.warmupId?'워밍업':'휴식'} · ${time}`:'';if(t&&!t.paused&&seconds===0&&!t.notified&&!announced.has(t.id)){announced.add(t.id);t.notified=true;try{saveSession(s);}catch(e){flash(e.message);}beep();const a=shell.querySelector('#timer-announcement');if(a)a.textContent=`${t.label} 시간이 끝났어요.`;flash(t.warmupId?'시간이 끝났어요. 워밍업 완료를 눌러 주세요.':'휴식 끝! 준비되면 다음 세트를 시작하세요.');}if(t&&display)display.classList.toggle('finished',!t.paused&&seconds===0);}
+ function tick(){
+  if(resetting)return;const s=active();
+  // Older saved sessions or a concurrent device can still carry a timer for a
+  // warmup already marked complete. Repair it before counting or announcing.
+  if(clearCompletedWarmupTimer(s)){try{saveSession(s);}catch(e){flash(e.message);}if(view==='today'&&!shell.hidden){render();return;}}
+  const t=s?.timer,seconds=remainingSeconds(t),display=shell.querySelector('#timer-display');const time=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;if(display)display.textContent=time;mini.hidden=!t||(view==='today'&&!shell.hidden);mini.textContent=t?`${t.paused?'일시정지':seconds===0?'휴식 끝':t.warmupId?'워밍업':'휴식'} · ${time}`:'';if(t&&!t.paused&&seconds===0&&!t.notified&&!announced.has(t.id)){announced.add(t.id);t.notified=true;try{saveSession(s);}catch(e){flash(e.message);}beep();const a=shell.querySelector('#timer-announcement');if(a)a.textContent=`${t.label} 시간이 끝났어요.`;flash(t.warmupId?'시간이 끝났어요. 워밍업 완료를 눌러 주세요.':'휴식 끝! 준비되면 다음 세트를 시작하세요.');}if(t&&display)display.classList.toggle('finished',!t.paused&&seconds===0);
+ }
  store.subscribe(()=>{if(renderPending)return;renderPending=true;setTimeout(()=>{renderPending=false;if(!document.activeElement?.matches('input,select,textarea'))render();},30);});
  setInterval(tick,250);
  window.addEventListener('storage',e=>{if(e.key===store.key&&!resetting){store.load();if(e.newValue===null){profileDraft=null;setView('onboarding');}}});
@@ -301,7 +307,7 @@ export function initTraining({catalog,exerciseIndex,illustrations,getPreferences
     await enableAudio();let s=active();if(!s){const plan=routine();s=createSession(plan,Number(b.dataset.day??plan.nextDay));store.save('session',s.id,s);}setView('today');acquireWake();
    }
    if(action==='sound-test'){await enableAudio();beep();if(audio?.state==='running')flash(profile()?.sound===false?'소리 설정이 꺼져 있어요. 운동 설정에서 켤 수 있어요.':'알림 소리를 재생했어요.');}
-   if(action==='warm-done'){const s=active();const w=s.warmup.find(w=>w.id===id);w.done=!w.done;w.changedAt=Date.now();saveSession(s);screens.followSession(s);render();}
+   if(action==='warm-done'){const s=active();toggleWarmupCompletion(s,id);saveSession(s);screens.followSession(s);render();}
    if(action==='warm-timer'){await enableAudio();const s=active(),w=s.warmup.find(w=>w.id===id);startTimer(s,w.seconds,w.name,id);}
    if(action==='manual-timer'){await enableAudio();const seconds=Number(shell.querySelector('#manual-rest').value);if(!Number.isInteger(seconds)||seconds<1||seconds>1800)throw Error('휴식 시간을 1–1800초로 입력해 주세요.');const s=active();s.restOverride=seconds;startTimer(s,seconds,'휴식');render();}
    if(action.startsWith('timer-')){const s=active();if(!s?.timer)return;const t=s.timer;

@@ -174,4 +174,12 @@ export function sessionStats(session){
 export function remainingSeconds(timer,now=Date.now()){
  if(!timer)return 0;return timer.paused?timer.remaining:Math.max(0,Math.ceil((timer.deadline-now)/1000));
 }
+export function clearCompletedWarmupTimer(session){
+ if(!session?.timer?.warmupId||!session.warmup.some(w=>w.id===session.timer.warmupId&&w.done))return false;
+ session.timer=null;return true;
+}
+export function toggleWarmupCompletion(session,id,now=Date.now()){
+ const warmup=session.warmup.find(w=>w.id===id);if(!warmup)throw Error('워밍업 단계를 다시 확인해 주세요.');
+ warmup.done=!warmup.done;warmup.changedAt=now;clearCompletedWarmupTimer(session);return warmup.done;
+}
 export function needsReview(record,now=Date.now()){return !!record&&now-new Date(record.date+'T00:00:00').getTime()>56*86400000;}

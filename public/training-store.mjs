@@ -11,6 +11,7 @@ export function mergeSession(a,b){
  })}));
  merged.exercises=merged.exercises.filter(e=>!e.additional||!merged.removedExercises[e.exerciseId]||(e.addedAt||0)>merged.removedExercises[e.exerciseId]||e.sets.some(s=>s.done));
  merged.warmup=merged.warmup.map(w=>{const old=other.warmup?.find(o=>o.id===w.id);return old&&(old.changedAt||0)>(w.changedAt||0)?old:w;});
+ clearCompletedWarmupTimer(merged);
  return merged;
 }
 export function mergeEntity(a,b){
@@ -41,7 +42,7 @@ export function validateBackup(backup){
  if(backup?.format!=='move-atlas-training-backup'||backup.version!==1||!backup.entities||Array.isArray(backup.entities)||typeof backup.entities!=='object'||Object.keys(backup.entities).length>50000)throw Error('Move Atlas 기록 백업 파일을 골라 주세요.');
  const entries=Object.entries(backup.entities);for(const [id,e]of entries)validateEntity(e,id);return entries;
 }
-import {validateProfile,BASIS,PROGRAMS,SPLITS} from './training.mjs';
+import {validateProfile,BASIS,PROGRAMS,SPLITS,clearCompletedWarmupTimer} from './training.mjs';
 function validateEntity(e,id=e?.id){
  if(!e||e.id!==id||!['profile','max','session','preferences'].includes(e.kind)||!Number.isFinite(e.updatedAt)||e.updatedAt<=0||e.updatedAt>Date.now()+300000||!e.value||Array.isArray(e.value)||id.length>150||!new RegExp(`^${e.kind}_[A-Za-z0-9_-]+$`).test(id))throw Error('기록 형식을 확인해 주세요.');
  const v=e.value;
