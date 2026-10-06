@@ -88,7 +88,7 @@ async function refreshIllustrations(){
     if(next.catalogRevision!==illustrations.catalogRevision)return;
     illustrations=next;data.exercises.forEach(x=>{x.hasIllustration=!!next.assets[x.id];});
     renderFilters();updateResults(false);
-    if($('#detail-dialog').open&&!$('#image-dialog').open&&openExercise){const top=$('#detail-dialog').scrollTop;showDetail(openExercise.id);$('#detail-dialog').scrollTop=top;}
+    if($('#detail-dialog').open&&!$('#image-dialog').open&&openExercise){const top=$('#detail-dialog .detail-content').scrollTop;showDetail(openExercise.id);$('#detail-dialog .detail-content').scrollTop=top;}
    }
   }
   renderIllustrationProgress();
@@ -176,12 +176,12 @@ function showDetail(id){
   ${x.originalInstructions?`<details class="detail-section"><summary>원본 운동 설명 <span>${esc(data.sources[x.originalInstructions.source].name)}</span></summary><p class="original-instructions">${esc(x.originalInstructions.text)}</p><p class="license-caption"><a href="${esc(assetUrl(x.originalInstructions.licenseUrl))}" target="_blank" rel="noopener noreferrer">${esc(x.originalInstructions.license)}</a> · ${esc(x.originalInstructions.author||data.sources[x.originalInstructions.source].name)}<br>원문 HTML·공백 정리 · 출처별 이용 조건 유지</p></details>`:''}
   <section class="detail-section"><h3>이 운동의 출처 <span>${sourceRows.length}</span></h3><div class="source-records">${sourceRows.map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer"><span><strong>${esc(data.sources[s.source].name)}</strong><small>${esc(s.name)}</small><small>${esc(s.license)}${s.author?' · '+esc(s.author):s.authorStatus==='not-supplied-by-upstream'?' · 작성자 미제공':''}</small></span>${icon('link')}</a>`).join('')}</div></section>
   <div class="detail-foot"><a href="./credits.html">전체 출처·저작권·이용 조건</a> · 그림·새 한국어 안내: <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a><br>한국어 표기·요약과 공통 분류는 도감을 위해 보완했습니다.<br>동작 일러스트는 원본 설명을 참고해 직접 제작했습니다.</div></div>`;
- mountReadingCards(d,'.detail-content');d.setAttribute('aria-label',`${group.nameKo} 상세 정보`);
- const intro=d.querySelector('.reading-intro');
+ d.setAttribute('aria-label',`${group.nameKo} 상세 정보`);
+ const intro=d.querySelector('.detail-content');intro.tabIndex=0;intro.setAttribute('role','region');intro.setAttribute('aria-label','운동 상세 내용');
  if(intro){const title=intro.querySelector('h2');if(title)title.textContent=group.nameKo;
   const choices=document.createElement('div');choices.className='equipment-picker';
   const variants=group.variants.filter(v=>!state.availableOnly||v.exercise.equipment.every(t=>state.tools.includes(t)));
-  choices.innerHTML=`${variantPickerHtml(group,x.id,data.equipment,{prefix:'detail-equipment',variants})}<p>그림·설명·최대 중량은 선택한 장비와 조건에 맞춰 표시돼요.</p><button class="training-button" data-action="detail-method">선택한 조건의 동작 보기 →</button>`;intro.querySelector('.detail-english')?.after(choices);
+  choices.innerHTML=`${variantPickerHtml(group,x.id,data.equipment,{prefix:'detail-equipment',variants})}<p>그림·설명·최대 중량은 선택한 장비와 조건에 맞춰 표시돼요.</p><button class="training-button" data-action="detail-method">운동 방법 보기 ↓</button>`;intro.querySelector('.detail-english')?.after(choices);
  }
  if(!d.open)d.showModal();
 }
@@ -192,7 +192,7 @@ function showAbout(){
 function toggleFavorite(id){
  const group=exerciseIndex.byExercise.get(id)?.group,ids=group?.variants.flatMap(v=>v.exerciseIds)||[id],saved=ids.some(i=>state.favorites.includes(i));
  state.favorites=saved?state.favorites.filter(x=>!ids.includes(x)):unique([...state.favorites,...ids]);persist();updateResults(false);
- if($('#detail-dialog').open&&openExercise?.id===id){const top=$('#detail-dialog').scrollTop;showDetail(id);$('#detail-dialog').scrollTop=top;}
+ if($('#detail-dialog').open&&openExercise?.id===id){const top=$('#detail-dialog .detail-content').scrollTop;showDetail(id);$('#detail-dialog .detail-content').scrollTop=top;}
 }
 function reset(){state={...state,region:'all',muscles:[],availableOnly:false,includeSecondary:false,withImages:false,activity:'all',query:''};$('#search').value='';persist();renderFilters();updateResults();}
 function closeMobile(){$('#filters-dialog')?.close();}
@@ -228,7 +228,7 @@ function bind(){
   if(action==='favorites'||action==='catalog'){state.onlyFavorites=action==='favorites';updateResults();}
   if(action==='about')showAbout();
   if(action==='close-detail')$('#detail-dialog').close();
-  if(action==='detail-method'){const select=$('#detail-dialog .screen-page-select');if(select){select.value='1';select.dispatchEvent(new Event('change'));}}
+  if(action==='detail-method'){const content=$('#detail-dialog .detail-content'),method=content?.querySelector('.method-section,.method-pending');if(method)content.scrollTo({top:content.scrollTop+method.getBoundingClientRect().top-content.getBoundingClientRect().top-12,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
   if(action==='close-about')$('#about-dialog').close();
   if(action==='expand-image'&&openExercise){const asset=illustrations.assets[openExercise.id];if(asset){const d=$('#image-dialog');d.innerHTML=`<div class="detail-top"><span>${esc(openExercise.nameKo)}</span><button data-action="close-image" aria-label="이미지 닫기">${icon('close')}</button></div><div class="image-panel-options" aria-label="이미지 자세 선택"><button data-image-panel="all" aria-pressed="true">전체</button><button data-image-panel="setup" aria-pressed="false">${esc(asset.panels[0])}</button><button data-image-panel="action" aria-pressed="false">${esc(asset.panels[1])}</button></div><div class="image-stage" data-stage="all"><img src="${esc(assetUrl(asset.url))}" alt="${esc(openExercise.nameKo)} 동작 일러스트"></div><div class="image-dialog-captions">${(asset.panels||['준비 자세','동작 자세']).map((p,i)=>`<span data-image-caption="${i?'action':'setup'}"><strong>${esc(p)}</strong>${illustrationStep(asset,i,p,'small')}</span>`).join('')}</div>${illustrationExample(asset)}`;d.dataset.stage='all';d.showModal();}}
   if(action==='close-image')$('#image-dialog').close();

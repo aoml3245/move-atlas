@@ -105,6 +105,19 @@ body.card-app{height:var(--app-height,100dvh);overflow:hidden;background:#f3f5fa
 .reading-stage{position:relative;padding:0 38px;overflow:hidden}.reading-stage>.card-edge{width:34px}.reading-page{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}.reading-dialog .screen-pager{justify-content:center}.reading-dialog .screen-page-select{max-width:600px!important}
 @media(max-width:699px){.catalog-tap-hint{font-size:10px}.reading-stage{padding:0 30px}.reading-stage>.card-edge{width:28px}.reading-dialog .screen-page-select{max-width:none!important}.reading-intro h2{font-size:22px}}
 
+/* Exercise details scroll inside the modal; its header remains reachable. */
+.card-app .detail-dialog{position:fixed;inset:0;margin:auto;width:min(900px,calc(100% - 28px));height:min(800px,calc(var(--app-height,100dvh) - 28px));max-height:calc(var(--app-height,100dvh) - 28px);border-radius:18px;padding:0;background:white;overflow:hidden}
+.card-app .detail-dialog[open]{display:flex;flex-direction:column}
+.card-app .detail-dialog .detail-top{position:static;flex:none;padding:16px 22px;background:white}
+.card-app .detail-dialog .detail-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding:24px;scroll-padding-top:12px}
+.card-app .detail-dialog .detail-content:focus-visible{outline:2px solid #96a9ff;outline-offset:-2px}
+.card-app .detail-dialog .detail-favorite{display:inline-flex;margin:4px 8px 4px 0}
+.card-app .detail-dialog .equipment-picker{max-width:none;margin:16px 0}
+.card-app .detail-dialog .equipment-picker .training-button{align-self:flex-start}
+.card-app .detail-dialog .method-heading{flex-wrap:wrap}.card-app .detail-dialog .detail-section h3{font-size:14px}.card-app .detail-dialog .detail-summary{font-size:14px}
+.card-app .detail-dialog .detail-foot{margin-bottom:8px}
+@media(max-width:699px){.card-app .detail-dialog .detail-top{padding:14px 18px}.card-app .detail-dialog .detail-content{padding:18px}.card-app .detail-dialog .variant-picker{grid-template-columns:1fr}.card-app .detail-dialog .method-captions{grid-template-columns:1fr}.card-app .detail-dialog .equipment-picker p{font-size:11px}.card-app .detail-dialog .method-captions p{font-size:12px}.card-app .detail-dialog .anatomy-card{padding:12px 8px 12px 0}.card-app .detail-dialog .body-map{width:125px}}
+
 /* Input layout follows the visual viewport, including keyboard resize/panning.
    Keep short content inside its card instead of overlapping the timer/footer. */
 .keyboard-close{flex:none;align-self:stretch;margin:0 12px 8px;min-height:38px;background:#fff;color:var(--blue)}
