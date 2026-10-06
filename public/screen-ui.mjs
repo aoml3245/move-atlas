@@ -37,7 +37,7 @@ export function installCompactNavigation(){
  let baselineHeight=window.innerHeight,lastWidth=window.innerWidth,compact=false,frame=null,lastInput=null;
  const size=()=>{
   frame=null;const viewport=window.visualViewport,width=window.innerWidth,layoutHeight=window.innerHeight;
-  if(Math.abs(width-lastWidth)>80){baselineHeight=layoutHeight;lastWidth=width;}
+  if(Math.abs(width-lastWidth)>1){baselineHeight=layoutHeight;lastWidth=width;}
   if(!viewport||viewport.scale<=1.05)baselineHeight=Math.max(baselineHeight,layoutHeight,viewport?.height||0);
   const focused=document.activeElement,editing=editable(focused),wasCompact=compact;
   const state=inputViewportLayout({width,layoutHeight,visualHeight:viewport?.height||layoutHeight,baselineHeight,offsetTop:viewport?.offsetTop||0,scale:viewport?.scale||1,editing,wasCompact});
@@ -230,7 +230,8 @@ export function mountReadingCards(dialog,selector){
   else if(node.tagName==='P')paragraph(node);else add(node);
  }
  if(intro.children.length)add(intro);if(!pages.length)return;
- let index=0;const stage=el('div','reading-stage'),footer=el('div','screen-pager'),previous=button('← 이전','reading-prev'),next=button('다음 →','reading-next'),select=el('select','screen-page-select');select.setAttribute('aria-label','설명 카드');
+ let index=0;const stage=el('div','reading-stage'),footer=el('div','screen-pager'),previous=button('‹','reading-prev'),next=button('›','reading-next'),select=el('select','screen-page-select');select.setAttribute('aria-label','설명 카드');
+ previous.className='card-edge card-edge-left';next.className='card-edge card-edge-right';previous.setAttribute('aria-label','이전 설명');next.setAttribute('aria-label','다음 설명');stage.append(previous,next);
  for(const [i,page]of pages.entries()){page.classList.add('reading-page');stage.append(page);const title=page.querySelector('h2,h3,strong,dt')?.textContent||page.textContent;const option=el('option','',`${i+1}. ${title.trim().slice(0,35)}`);option.value=i;select.append(option);}
- const label=el('span','screen-page-count');footer.append(previous,select,label,next);const go=n=>{index=clampPage(n,pages.length);pages.forEach((p,i)=>p.hidden=i!==index);previous.disabled=index===0;next.disabled=index===pages.length-1;select.value=index;label.textContent=`${index+1} / ${pages.length}`;};previous.onclick=()=>go(index-1);next.onclick=()=>go(index+1);select.onchange=()=>go(Number(select.value));dialog.classList.add('reading-dialog');dialog.replaceChildren(top,stage,footer);go(0);
+ const label=el('span','screen-page-count');label.setAttribute('role','status');label.setAttribute('aria-live','polite');footer.append(select,label);const go=n=>{index=clampPage(n,pages.length);pages.forEach((p,i)=>p.hidden=i!==index);previous.disabled=index===0;next.disabled=index===pages.length-1;select.value=index;label.textContent=`${index+1} / ${pages.length}`;};previous.onclick=()=>go(index-1);next.onclick=()=>go(index+1);select.onchange=()=>go(Number(select.value));dialog.onkeydown=e=>{if(e.target.closest('input,textarea,select,[contenteditable]'))return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();go(index+(e.key==='ArrowRight'?1:-1));}};dialog.classList.add('reading-dialog');dialog.replaceChildren(top,stage,footer);go(0);
 }
