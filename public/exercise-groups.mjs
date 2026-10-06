@@ -32,13 +32,43 @@ export function equipmentLabel(exercise,labels){
  const primary=['dumbbell','barbell','ez_bar','kettlebell','smith','cable','machine','band'];
  return [...exercise.equipment].sort((a,b)=>(primary.includes(a)?primary.indexOf(a):100)-(primary.includes(b)?primary.indexOf(b):100)).map(t=>labels[t]||t).join(' · ')||'맨몸';
 }
+export const equipmentKey=variant=>[...variant.exercise.equipment].sort().join('|')||'bodyweight';
+export function equipmentOptions(group,labels,variants=group.variants){
+ const options=new Map();
+ for(const variant of variants){const key=equipmentKey(variant);if(!options.has(key))options.set(key,{key,label:equipmentLabel(variant.exercise,labels),variants:[]});options.get(key).variants.push(variant);}
+ return [...options.values()];
+}
+export function conditionLabel(variant,group){
+ const label=[...new Set((variant.conditions||[]).map(c=>c.label))].join(' · ')||'기본';
+ const same=group.variants.filter(v=>equipmentKey(v)===equipmentKey(variant)&&([...(v.conditions||[])].map(c=>`${c.type}:${c.label}`).sort().join('|')===[...(variant.conditions||[])].map(c=>`${c.type}:${c.label}`).sort().join('|')));
+ // Same-equipment/same-condition entries remain separate until reviewed.
+ return same.length>1?`${label} · ${variant.exercise.name}${same.filter(v=>v.exercise.name===variant.exercise.name).length>1?' · '+(same.indexOf(variant)+1):''}`:label;
+}
 export function variantLabel(variant,group,labels){
- const equipment=equipmentLabel(variant.exercise,labels);
- const same=group.variants.filter(v=>equipmentLabel(v.exercise,labels)===equipment);
- if(same.length===1)return equipment;
- const name=variant.exercise.name;
- // Unreviewed same-equipment entries retain their own instruction and records.
- return `${equipment} · ${name}${same.filter(v=>v.exercise.name===name).length>1?' · '+(same.indexOf(variant)+1):''}`;
+ const gear=equipmentLabel(variant.exercise,labels),condition=conditionLabel(variant,group);
+ return group.variants.length>1||variant.conditions?.length?`${gear} · ${condition}`:gear;
+}
+export function chooseEquipmentVariant(group,key,currentId,variants=group.variants){
+ const current=group.variants.find(v=>v.exerciseIds.includes(currentId)),options=variants.filter(v=>equipmentKey(v)===key);
+ if(!options.length)return null;
+ if(options.includes(current))return current;
+ const conditionSet=v=>new Set((v?.conditions||[]).map(c=>`${c.type}:${c.label}`)),wanted=conditionSet(current);
+ const distance=v=>{const actual=conditionSet(v);return [...wanted].filter(c=>!actual.has(c)).length+[...actual].filter(c=>!wanted.has(c)).length;};
+ // Preserve the condition combination when the new apparatus offers it.
+ return options.reduce((best,v)=>distance(v)<distance(best)?v:best,options[0]);
+}
+const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function variantPickerHtml(group,id,labels,{prefix,variants=group.variants}={}){
+ const selected=variants.find(v=>v.exerciseIds.includes(id))||variants[0];if(!selected)return '<p>사용할 수 있는 조건이 없어요.</p>';
+ const equipment=equipmentOptions(group,labels,variants),key=equipmentKey(selected),conditions=equipment.find(e=>e.key===key).variants;
+ return `<div class="variant-picker" data-variant-picker="${escapeHtml(prefix)}" data-group-id="${group.id}" data-selected-id="${selected.id}" data-variant-ids="${variants.map(v=>v.id).join(',')}"><label for="${prefix}-gear">장비<select id="${prefix}-gear" data-variant-gear>${equipment.map(e=>`<option value="${escapeHtml(e.key)}" ${e.key===key?'selected':''}>${escapeHtml(e.label)}</option>`).join('')}</select></label><label for="${prefix}">그립·각도·자세<select id="${prefix}" data-variant-condition>${conditions.map(v=>`<option value="${v.id}" ${v===selected?'selected':''}>${escapeHtml(conditionLabel(v,group))}</option>`).join('')}</select></label></div>`;
+}
+export function pickerSelection(index,target){
+ const root=target.closest('[data-variant-picker]');if(!root)return null;
+ const group=index.byGroup.get(root.dataset.groupId);if(!group)return null;
+ const allowed=new Set(root.dataset.variantIds.split(',')),variants=group.variants.filter(v=>allowed.has(v.id));
+ const variant=target.hasAttribute('data-variant-gear')?chooseEquipmentVariant(group,target.value,root.dataset.selectedId,variants):variants.find(v=>v.id===target.value);
+ return variant?{group,variant,prefix:root.dataset.variantPicker}:null;
 }
 export function groupExerciseName(index,id,labels){
  const link=index.byExercise.get(id);if(!link)return index.byId.get(id)?.nameKo||'운동';

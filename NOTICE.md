@@ -24,7 +24,10 @@ redistributing the collection. The same source notices apply to the retained
 text snapshots in `data/sources/`.
 
 `public/exercise-groups.json` provides display groups and explicit record aliases
-over the original exercise IDs. It does not remove or replace the source-level
+over the original exercise IDs. Equipment, grip, angle, posture, unilateral,
+assistance and execution options retain their original instruction/image IDs and
+independent maximum/progression records. Display grouping does not declare
+condition variants to be interchangeable record aliases. It does not remove or replace the source-level
 attribution in `public/catalog.json`. Redistribute that catalog and its notices
 with the grouping file; grouping does not relicense imported names or expression.
 
