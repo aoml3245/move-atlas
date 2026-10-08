@@ -1,4 +1,28 @@
+// Catalog tags describe training families. Primary muscles are a fallback;
+// posterior shoulder work and lower-body hinges override broad source labels.
+export const MOVEMENT_VIEWS={all:{label:'전체',description:'모든 운동'},push:{label:'밀기',description:'가슴 · 어깨 앞/옆 · 삼두'},pull:{label:'당기기',description:'등 · 어깨 뒤 · 이두 · 전완'},legs:{label:'다리',description:'허벅지 · 엉덩이 · 종아리'}};
+export function exercisePatterns(exercise){
+ if(!['strength','powerlifting','olympic weightlifting','strongman','plyometrics'].includes(exercise.activity))return [];
+ const name=exercise.name.toLowerCase().replace(/[-_]/g,' ').replace(/(?:on )?dip pull up cage/g,''),muscles=new Set(exercise.primaryMuscles),patterns=new Set();
+ const lower=/dead\s*lift|good morning|hip thrust|glute bridge|leg press|back extension|hyperextension|rack pull|reverse nordic/.test(name)||['squat','lunge','leg_curl','leg_extension','calf_raise','hip','hinge'].includes(exercise.movement);
+ if(lower)patterns.add('legs');
+ const posterior=/rear.*(?:fly|raise|row)|reverse fly|face pull|pull apart|pullup|pull up|chin.?up|pulldown|pull down|shrug|\brow\b/.test(name)||['row','pullup','pulldown','shrug'].includes(exercise.movement);
+ if(posterior)patterns.add('pull');
+ const push=['bench_press','shoulder_press','pushup','dip','triceps_extension','front_raise'].includes(exercise.movement)||/chest press|shoulder press|overhead press|military press|push press|triceps? (?:pushdown|extension|kickback)|skull ?crusher/.test(name);
+ if(push&&!lower)patterns.add('push');
+ // Source muscle lists occasionally put every participating muscle in the
+ // primary field. They must not turn pushups into a pulling exercise.
+ if(!patterns.size){
+  if([...muscles].some(m=>['quads','glutes','hamstrings','calves','adductors','abductors'].includes(m)))patterns.add('legs');
+  if(muscles.has('chest')||muscles.has('triceps'))patterns.add('push');
+  else if(muscles.has('biceps')||muscles.has('forearms')||muscles.has('lats')||muscles.has('upper_back'))patterns.add('pull');
+  else if(muscles.has('shoulders'))patterns.add('push');
+ }
+ return [...patterns];
+}
+
 export function matchesExercise(exercise, state) {
+  if(state.movementView&&state.movementView!=='all'&&!exercisePatterns(exercise).includes(state.movementView))return false;
   if (state.withImages && !exercise.hasIllustration) return false;
   if (state.region !== 'all' && !exercise.regions.includes(state.region)) return false;
   const muscles = state.includeSecondary ? [...exercise.primaryMuscles, ...exercise.secondaryMuscles] : exercise.primaryMuscles;

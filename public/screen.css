@@ -85,6 +85,19 @@ body.card-app{height:var(--app-height,100dvh);overflow:hidden;background:#f3f5fa
 .screen-lift-order{display:none}
 @media(max-width:699px) and (max-height:680px){.screen-session .exercise-order{display:none}.screen-lift-order{display:inline-block;font-size:10px;padding:4px 7px;min-height:25px;margin:3px 4px 3px 0}.screen-page>.screen-session{padding:10px;gap:5px}.screen-session .screen-lift-content{gap:5px}}
 .card-app .workspace{width:100%;max-width:none;margin:0}
+.catalog-view-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
+.catalog-movement-tabs{display:flex;gap:4px;flex:1;min-width:0;background:#eaf0fa;padding:4px;border-radius:11px;max-width:480px}
+.catalog-movement-tabs button{flex:1;padding:8px 12px;border-radius:8px;font-size:13px;color:#647592;white-space:nowrap;min-height:36px}
+.catalog-movement-tabs button[aria-pressed=true]{background:#3153df;color:white;box-shadow:0 2px 7px #3153df20}
+.catalog-excluded-toggle{font-size:12px;white-space:nowrap;padding:8px 10px;min-height:40px;color:#667894;border:1px solid #dce3ef;border-radius:10px;background:white}
+.catalog-excluded-toggle[aria-pressed=true]{background:#edf2ff;border-color:#8ea2f4;color:#3153df}
+.catalog-view-description{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:24px;font-size:11px;color:#7a89a1;margin:3px 2px 0}
+.catalog-view-description button{padding:4px 8px;color:#3153df;white-space:nowrap}
+.card-actions{position:absolute;top:10px;right:48px;display:flex;gap:5px;z-index:3;align-items:center}
+.exercise-card .card-actions .favorite{position:static;width:34px;height:34px;flex:none}
+.card-exclude{padding:7px 10px;min-height:34px;font-size:11px;color:#61738e;border:1px solid #dce3ef;border-radius:20px;background:#ffffffed}
+@media(max-width:699px){.catalog-movement-tabs{gap:2px;padding:3px}.catalog-movement-tabs button{padding:7px 8px;font-size:12px;min-height:34px}.catalog-excluded-toggle{padding:6px 8px;font-size:11px;min-height:40px}.catalog-view-description{font-size:10px}.card-actions{top:10px;right:48px}}
+.input-compact #catalog-views{display:none}
 .card-app .image-dialog{height:calc(var(--app-height,100dvh) - 28px);max-height:calc(var(--app-height,100dvh) - 28px);overflow:hidden}
 .card-app .image-dialog[open]{display:flex;flex-direction:column}.card-app .image-dialog .detail-top,.card-app .image-panel-options,.card-app .image-dialog-captions,.card-app .image-dialog>.illustration-example{flex:none}.card-app .image-dialog .detail-top{position:static;padding:14px 18px}.card-app .image-stage{flex:1;min-height:0;display:flex;align-items:center}.card-app .image-stage img{height:100%;object-fit:contain;flex:none}.card-app .image-dialog-captions{font-size:12px;padding:10px 16px;gap:12px}.card-app .image-dialog>.illustration-example{font-size:11px;line-height:1.5;padding-bottom:10px}
 @media(max-width:699px){.card-app .image-dialog-captions strong{font-size:11px}.card-app .image-dialog-captions small{font-size:10px;line-height:1.6}.card-app .image-panel-options{margin:8px}.card-app .image-dialog>.illustration-example{font-size:10px}}

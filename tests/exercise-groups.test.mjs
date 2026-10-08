@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {createExerciseIndex,matchingGroups,resolveMaxima,variantLabel,groupExerciseName,equipmentKey,equipmentOptions,conditionLabel,chooseEquipmentVariant} from '../public/exercise-groups.mjs';
+import {createExerciseIndex,matchingGroups,resolveMaxima,variantLabel,groupExerciseName,equipmentKey,equipmentOptions,conditionLabel,chooseEquipmentVariant,isGroupExcluded,setGroupExcluded} from '../public/exercise-groups.mjs';
 import {DEFAULT_PROFILE,makeExercise,exerciseCandidate,buildRoutine,lastProgress,dayKey} from '../public/training.mjs';
 const bytes=await readFile(new URL('../public/catalog.json',import.meta.url));
 const catalog=JSON.parse(bytes),payload=JSON.parse(await readFile(new URL('../public/exercise-groups.json',import.meta.url)));
@@ -14,7 +14,7 @@ const bench='ex_c9b82dda3a0dfa',dbBench='ex_e8875fab9aefae',rdl='ex_7f695d323bb7
 
 test('every original exercise, source and image ID is reachable once through stable display groups',()=>{
  assert.equal(payload.catalogSha256,createHash('sha256').update(bytes).digest('hex'));
- assert.equal(index.byExercise.size,2844);assert.equal(index.groups.length,1841);assert.equal(payload.meta.equipmentGroupCount,2381);
+ assert.equal(index.byExercise.size,2844);assert.equal(index.groups.length,1736);assert.equal(payload.meta.equipmentGroupCount,2362);
  assert.equal(index.groups.length,payload.meta.groupCount);
  for(const x of catalog.exercises){assert.ok(index.byExercise.get(x.id).variant.exerciseIds.includes(x.id));assert.ok(x.sources.length);}
  for(const g of index.groups)for(const v of g.variants){assert.ok(v.exerciseIds.includes(v.id));for(const id of v.exerciseIds)assert.deepEqual([...index.byId.get(id).equipment].sort(),[...v.exercise.equipment].sort());}
@@ -28,11 +28,32 @@ test('equipment and explicit condition counterparts share cards while functional
  const find=name=>catalog.exercises.find(x=>x.name===name);
  assert.notEqual(index.byExercise.get(find('Incline Dumbbell Flyes').id).group,index.byExercise.get(find('dumbbell incline fly on exercise ball').id).group);
  const deficit=index.byExercise.get(find('Romanian Deadlift from Deficit').id);
- assert.notEqual(index.byExercise.get(rdl).group,deficit.group);assert.notEqual(index.byExercise.get(rdl).variant,deficit.variant);assert.match(conditionLabel(deficit.variant,deficit.group),/디피싯/);
+ assert.equal(index.byExercise.get(rdl).group,deficit.group);assert.notEqual(index.byExercise.get(rdl).variant,deficit.variant);assert.match(conditionLabel(deficit.variant,deficit.group),/디피싯/);
  for(const [a,b] of [['Reverse Lunge','Dumbbell Lunges'],['Reverse Crunch','Crunches'],['Reverse Flyes','Dumbbell Flyes']]){
   const first=find(a),second=find(b);assert.ok(first&&second,`${a} / ${b}`);assert.notEqual(index.byExercise.get(first.id).group,index.byExercise.get(second.id).group);
  }
  const incline=catalog.exercises.find(x=>x.name==='Incline Bench Press'&&x.equipment.includes('dumbbell'));assert.ok(incline);assert.equal(index.byExercise.get(bench).group,index.byExercise.get(incline.id).group);
+});
+test('motion aliases, attachment names, abbreviations and sport categories collapse without merging their records',()=>{
+ for(const [a,b] of [['ex_b0816d315b7d48','ex_7579ab58d71c80'],['ex_419457101b086d','ex_b127ee996001a2'],['ex_c4e596c8f0ebe9','ex_8ca692c997e12d'],['ex_faa1ccab50214f','ex_38d68d0389b0dd'],['ex_36e100f10f3c84','ex_65630a49664078']]){
+  assert.equal(index.byExercise.get(a).group,index.byExercise.get(b).group);assert.notEqual(index.byExercise.get(a).variant,index.byExercise.get(b).variant);
+ }
+ const pushdown=index.byExercise.get('ex_419457101b086d');assert.match(conditionLabel(pushdown.variant,pushdown.group),/로프 손잡이/);
+ const chin=index.byExercise.get('ex_38d68d0389b0dd');assert.match(conditionLabel(chin.variant,chin.group),/언더핸드/);
+ const parallel=index.byExercise.get(catalog.exercises.find(x=>x.name==='chin-ups (narrow parallel grip)').id);assert.match(conditionLabel(parallel.variant,parallel.group),/평행/);assert.doesNotMatch(conditionLabel(parallel.variant,parallel.group),/언더핸드/);
+ assert.equal(index.byExercise.get('ex_89a744cf047a80').group,index.byExercise.get('ex_91eb49cf1e28c7').group);
+ assert.equal(index.byId.get('ex_91eb49cf1e28c7').activity,'powerlifting');
+ assert.equal(new Set(index.groups.map(g=>g.nameKo)).size,index.groups.length);
+ const a='ex_419457101b086d',b='ex_b127ee996001a2',saved={[`max_${a}`]:{id:`max_${a}`,kind:'max',updatedAt:100,value:{value:40}}};
+ assert.equal(resolveMaxima(index,saved)[a].value,40);assert.equal(resolveMaxima(index,saved)[b],undefined);
+ const stretch=catalog.exercises.find(x=>x.name==='Lower Back Curl'),strength=catalog.exercises.find(x=>x.name==='lower back curl');assert.notEqual(index.byExercise.get(stretch.id).group,index.byExercise.get(strength.id).group);
+});
+test('exclusions hide the entire display family and survive a family ID change without deleting stored records',()=>{
+ const group=index.byExercise.get(bench).group,excluded=setGroupExcluded(group,[],true),before=structuredClone(group.variants.map(v=>v.exerciseIds));
+ assert.ok(isGroupExcluded({...group,id:'new-display-id'},excluded));
+ assert.equal(matchingGroups(index,{...state,excluded,query:'bench press'}).some(g=>g.id===group.id),false);
+ const hidden=matchingGroups(index,{...state,excluded,showExcluded:true,region:'lower',muscles:['calves'],availableOnly:true,tools:[],movementView:'legs',onlyFavorites:true});assert.equal(hidden.length,1);assert.equal(hidden[0].id,group.id);
+ const restored=setGroupExcluded(group,excluded,false);assert.deepEqual(restored,[]);assert.ok(matchingGroups(index,{...state,excluded:restored}).some(g=>g.id===group.id));assert.deepEqual(group.variants.map(v=>v.exerciseIds),before);
 });
 test('availability filters apply to a complete individual variant, not an equipment union across a card',()=>{
  const group=index.byExercise.get(dbBench).group;

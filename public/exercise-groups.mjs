@@ -18,10 +18,19 @@ export function createExerciseIndex(catalog,payload){
  return {groups,byId,byExercise,byGroup};
 }
 
+export const groupExerciseIds=group=>group.variants.flatMap(v=>v.exerciseIds);
+export const isGroupExcluded=(group,excluded)=>groupExerciseIds(group).some(id=>excluded.includes(id));
+export function setGroupExcluded(group,excluded,hide){
+ const ids=new Set(groupExerciseIds(group));
+ return hide?[...new Set([...excluded,...ids])]:excluded.filter(id=>!ids.has(id));
+}
 export function matchingGroups(index,state){
  const matched=[];
+ const excluded=state.excluded||[];
  for(const group of index.groups){
-  const variants=group.variants.filter(v=>v.exerciseIds.some(id=>matchesExercise(index.byId.get(id),state)));
+  if(isGroupExcluded(group,excluded)!==!!state.showExcluded)continue;
+  const filterState=state.showExcluded?{...state,region:'all',muscles:[],availableOnly:false,activity:'all',movementView:'all',onlyFavorites:false,withImages:false}:state;
+  const variants=group.variants.filter(v=>v.exerciseIds.some(id=>matchesExercise(index.byId.get(id),filterState)));
   if(variants.length)matched.push({...group,matches:variants,representative:variants[0].exercise});
  }
  const sorted=sortExercises(matched.map(g=>({...g.representative,name:g.name,nameKo:g.nameKo,group:g})),state.sort);

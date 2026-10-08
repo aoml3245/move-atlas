@@ -41,3 +41,10 @@ test('a failed backup import rolls back changes across namespaces',()=>{
  data.setItem=(key,value)=>{if(key===PREFERENCES_KEY&&once){once=false;throw Error('quota');}set(key,value);};
  assert.throws(()=>importDeviceBackup(data,backup),/취소/);assert.deepEqual(deviceSnapshot(data,store),before);
 });
+test('excluded exercise IDs round-trip in device and account preferences, and old backups remain valid',()=>{
+ const {data,store}=fixture(),id='ex_abcdef12345678';store.switchAccount('guest');store.save('preferences','catalog',{tools:[],favorites:[],excluded:[id],availableOnly:false});data.setItem(PREFERENCES_KEY,JSON.stringify({version:1,tools:[],favorites:[],excluded:[id]}));
+ const backup=deviceBackup(data,store);clearDeviceData(data);importDeviceBackup(data,backup);store.load();assert.deepEqual(store.get('preferences','catalog').excluded,[id]);assert.deepEqual(JSON.parse(data.getItem(PREFERENCES_KEY)).excluded,[id]);
+ importDeviceBackup(data,{format:'move-atlas-device-backup',version:1,entries:{[PREFERENCES_KEY]:JSON.stringify({version:1,tools:['bench'],favorites:[]})}});assert.deepEqual(JSON.parse(data.getItem(PREFERENCES_KEY)).excluded,[id]);
+ const before=deviceSnapshot(data,store);assert.throws(()=>importDeviceBackup(data,{...backup,entries:{[PREFERENCES_KEY]:JSON.stringify({version:1,tools:[],favorites:[],excluded:'bad'})}}));assert.deepEqual(deviceSnapshot(data,store),before);
+ const invalid=store.backup();invalid.entities.preferences_catalog.value.excluded=[123];assert.throws(()=>store.importBackup(invalid));
+});

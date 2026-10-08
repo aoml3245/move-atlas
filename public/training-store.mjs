@@ -49,7 +49,7 @@ function validateEntity(e,id=e?.id){
  if(e.kind==='profile')validateProfile(v);
  if(e.kind==='max'&&(!Number.isFinite(v.value)||v.value<=0||v.value>3000||typeof v.exerciseId!=='string'||id!==`max_${v.exerciseId}`||!['measured','estimated'].includes(v.source)||!BASIS[v.basis]||!Number.isFinite(v.step)||v.step<=0||v.step>100||!/^\d{4}-\d{2}-\d{2}$/.test(v.date)||!Number.isFinite(new Date(v.date).getTime())))throw Error('중량 기록 형식을 확인해 주세요.');
  if(e.kind==='max'&&['testWeight','testReps','testRir'].some(k=>v[k]!==undefined&&(!Number.isFinite(v[k])||v[k]<0||v[k]>3000)))throw Error('최대 중량의 테스트 값을 확인해 주세요.');
- if(e.kind==='preferences'&&(!Array.isArray(v.tools)||!Array.isArray(v.favorites)||[...v.tools,...v.favorites].some(x=>typeof x!=='string')))throw Error('도감 설정 형식을 확인해 주세요.');
+ if(e.kind==='preferences'&&(!Array.isArray(v.tools)||!Array.isArray(v.favorites)||v.excluded!==undefined&&!Array.isArray(v.excluded)||[...v.tools,...v.favorites,...(v.excluded||[])].some(x=>typeof x!=='string')))throw Error('도감 설정 형식을 확인해 주세요.');
  if(e.kind==='session'){
   if(id!==`session_${v.id}`||!PROGRAMS[v.program]||!SPLITS[v.split]||!['active','complete','abandoned'].includes(v.status)||!Array.isArray(v.exercises)||!Array.isArray(v.warmup)||v.exercises.length>40||!Number.isFinite(v.startedAt))throw Error('운동 기록 형식이 올바르지 않아요.');
   if(v.warmup.length!==2||!v.warmup.some(w=>w.id==='walk'&&w.seconds===300)||!v.warmup.some(w=>w.id==='dynamic'&&w.seconds===180))throw Error('걷기와 스트레칭 기록을 확인해 주세요.');

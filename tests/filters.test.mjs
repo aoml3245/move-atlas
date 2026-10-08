@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { matchesExercise,sortExercises } from '../public/filters.mjs';
+import { matchesExercise,sortExercises,exercisePatterns } from '../public/filters.mjs';
 const catalog=JSON.parse(await readFile(new URL('../public/catalog.json',import.meta.url),'utf8'));
 const state={region:'all',muscles:[],tools:[],availableOnly:false,includeSecondary:false,activity:'all',onlyFavorites:false,favorites:[],query:'',labels:{equipment:catalog.equipment,muscles:catalog.muscles}};
 const sample={id:'x',name:'Dumbbell Bench Press',nameKo:'덤벨 벤치프레스',aliases:['DB Bench Press'],regions:['upper'],primaryMuscles:['chest'],secondaryMuscles:['triceps'],equipment:['dumbbell','bench'],activity:'strength',sources:[],needsReview:false};
@@ -64,4 +64,17 @@ test('sort is non-mutating and maintains complete filtered results',()=>{
  const sorted=sortExercises(before,'korean');
  assert.deepEqual(before.map(x=>x.id),ids);
  assert.deepEqual(new Set(sorted.map(x=>x.id)),new Set(ids));
+});
+test('push/pull/legs recognize rear shoulders and hinges, and intersect with existing filters',()=>{
+ const find=name=>catalog.exercises.find(x=>x.name===name);
+ for(const name of ['Dumbbell Bench Press','Dumbbell Shoulder Press','Triceps Pushdown - Rope Attachment'])assert.deepEqual(exercisePatterns(find(name)),['push']);
+ for(const name of ['Reverse Fly','Cross Body Hammer Curl','Lat Pulldown'])assert.deepEqual(exercisePatterns(find(name)),['pull']);
+ assert.deepEqual(exercisePatterns(catalog.exercises.find(x=>x.id==='ex_76c72fa0cd7d75')),['pull']);
+ for(const name of ['Barbell Deadlift','Romanian Deadlift','Reverse Nordic Curl'])assert.deepEqual(exercisePatterns(find(name)),['legs']);
+ assert.deepEqual(exercisePatterns(find('Plank')),[]);assert.deepEqual(exercisePatterns({...sample,activity:'stretching'}),[]);
+ assert.equal(matchesExercise(sample,{...state,movementView:'push',tools:['dumbbell','bench'],availableOnly:true}),true);
+ assert.equal(matchesExercise(sample,{...state,movementView:'push',tools:['dumbbell'],availableOnly:true}),false);
+ assert.equal(matchesExercise(sample,{...state,movementView:'pull'}),false);
+ assert.deepEqual(exercisePatterns({...sample,name:'Pushups',movement:'pushup',primaryMuscles:['biceps','lats','chest','upper_back','triceps']}),['push']);
+ assert.deepEqual(exercisePatterns({...sample,name:'Chest Dip (on dip-pull-up cage)',movement:'dip'}),['push']);
 });

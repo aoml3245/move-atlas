@@ -39,8 +39,8 @@ export function importDeviceBackup(storage,backup){
   if(!isPersonalDataKey(key)||typeof raw!=='string')throw Error('백업에 알 수 없는 저장 항목이 있어요.');const incoming=JSON.parse(raw);
   let local;try{local=JSON.parse(storage.getItem(key)||'null');}catch{}
   if(key===PREFERENCES_KEY){
-   if(incoming?.version!==1||!Array.isArray(incoming.tools)||!Array.isArray(incoming.favorites)||[...incoming.tools,...incoming.favorites].some(x=>typeof x!=='string'))throw Error('도감 설정 형식을 확인해 주세요.');
-   changes[key]=JSON.stringify({...incoming,tools:[...new Set([...(local?.tools||[]),...incoming.tools])],favorites:[...new Set([...(local?.favorites||[]),...incoming.favorites])]});
+   if(incoming?.version!==1||!Array.isArray(incoming.tools)||!Array.isArray(incoming.favorites)||incoming.excluded!==undefined&&!Array.isArray(incoming.excluded)||[...incoming.tools,...incoming.favorites,...(incoming.excluded||[])].some(x=>typeof x!=='string'))throw Error('도감 설정 형식을 확인해 주세요.');
+   changes[key]=JSON.stringify({...incoming,tools:[...new Set([...(local?.tools||[]),...incoming.tools])],favorites:[...new Set([...(local?.favorites||[]),...incoming.favorites])],excluded:[...new Set([...(local?.excluded||[]),...(incoming.excluded||[])])]});
   }else{
    validateBackup({format:'move-atlas-training-backup',version:incoming?.version,entities:incoming?.entities});count+=Object.keys(incoming.entities).length;if(count>50000)throw Error('백업의 기록 수가 너무 많아요.');
    const entities=local?.version===1?{...local.entities}:{};for(const [id,entry]of Object.entries(incoming.entities))entities[id]=mergeEntity(entities[id],entry);
